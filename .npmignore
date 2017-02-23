@@ -1,0 +1,4 @@
+spec/
+example.ts
+tsconfig.json
+yarn.lock

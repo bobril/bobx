@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "declaration": false,
+        "lib": [
+            "es5",
+            "dom",
+            "es2015.core",
+            "es2015.promise"
+        ],
+        "removeComments": false,
+        "noLib": false,
+        "preserveConstEnums": false,
+        "jsx": "react",
+        "reactNamespace": "b",
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "strictNullChecks": true,
+        "experimentalDecorators": true
+    },
+    "include": [
+        "**/*"
+    ],
+    "compileOnSave": false,
+    "files": [
+        "c:/Research/bobril-build/typings/jasmine/jasmine.d.ts",
+        "node_modules/bobril/jsx.d.ts"
+    ]
+}
