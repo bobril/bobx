@@ -2,6 +2,6 @@
 # yarn lockfile v1
 
 
-bobril@^5.3.1:
-  version "5.3.1"
-  resolved "https://registry.yarnpkg.com/bobril/-/bobril-5.3.1.tgz#fde48ecf610129a6992e3ce883148dd9720ac4b8"
+bobril@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.yarnpkg.com/bobril/-/bobril-6.0.0.tgz#ade7b50f68dc2724bcf70d4804049ae2efbe161e"

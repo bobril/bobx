@@ -24,13 +24,13 @@ export function makeNonEnumerable(object: any, propNames: string[]) {
     }
 }
 
-interface IBobxInCtx {
+interface IBobXInCtx {
     ctxId: string;
     [atomId: string]: IAtom | string;
 }
 
-interface IBobxBobrilCtx extends b.IBobrilCtx {
-    $bobx: IBobxInCtx | undefined;
+interface IBobXBobrilCtx extends b.IBobrilCtx {
+    $bobx: IBobXInCtx | undefined;
 }
 
 interface IAtom {
@@ -71,24 +71,24 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
     }
 
     set(value: T): void {
-        const newv = this.enhancer(value, this.value);
-        if (newv !== this.value) {
+        const newValue = this.enhancer(value, this.value);
+        if (newValue !== this.value) {
             this.invalidate();
-            this.value = newv;
+            this.value = newValue;
         }
     }
 
     atomId: string;
 
-    ctxs: { [ctxid: string]: IBobxBobrilCtx } | undefined;
+    ctxs: { [ctxId: string]: IBobXBobrilCtx } | undefined;
 
     markUsage() {
-        const ctx = b.getCurrentCtx() as IBobxBobrilCtx;
+        const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
         if (ctx === undefined) // outside of render => nothing to mark
             return;
         let bobx = ctx.$bobx;
         if (bobx === undefined) {
-            bobx = Object.create(null) as IBobxInCtx;
+            bobx = Object.create(null) as IBobXInCtx;
             bobx.ctxId = allocId();
             ctx.$bobx = bobx;
         }
@@ -118,6 +118,23 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
     }
 }
 
+let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.RenderPhase) => {
+    if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
+        const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
+        let bobx = ctx.$bobx;
+        if (bobx === undefined)
+            return;
+        const ctxId = bobx.ctxId;
+        ctx.$bobx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
+        for (let atomId in bobx) {
+            if (atomId === "ctxId")
+                continue;
+            delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
+        }
+    }
+    previousBeforeRender(node, phase);
+});
+
 export function referenceEnhancer<T>(newValue: T, _oldValue: T | undefined): T {
     return newValue;
 }
@@ -137,7 +154,7 @@ export function isPlainObject(value: any) {
     return proto === Object.prototype || proto === null;
 }
 
-export function asObservableObject(target: Object): ObservableObjectBehind {
+function asObservableObject(target: Object): ObservableObjectBehind {
     let behind = (target as IAtom).$bobx;
     if (behind !== undefined)
         return behind;
@@ -158,24 +175,37 @@ function asObservableClass(target: Object): ObservableObjectBehind {
 export function deepEqual(a: any, b: any) {
     if (a === b)
         return true;
-    if (typeof a !== "object")
+    if (typeof a !== "object" || typeof b !== "object")
         return false;
+    if (isArrayLike(a)) {
+        if (!isArrayLike(b)) return false;
+        const length = a.length;
+        if (length != b.length)
+            return false;
+        const aArray = a.$bobx || a;
+        const bArray = b.$bobx || b;
+        for (let i = 0; i < length; i++) {
+            if (!deepEqual(aArray[i], bArray[i]))
+                return false;
+        }
+        return true;
+    }
     if (typeof a === "object" && typeof b === "object") {
         if (a === null || b === null)
             return false;
-        let bkeys = 0;
+        let bKeys = 0;
         for (let _prop in b) {
-            bkeys++;
+            bKeys++;
         }
-        let akeys = 0;
+        let aKeys = 0;
         for (let prop in a) {
-            akeys++;
+            aKeys++;
             if (!(prop in b))
                 return false;
             if (!deepEqual(a[prop], b[prop]))
                 return false;
         }
-        return akeys == bkeys;
+        return aKeys == bKeys;
     }
     return false;
 }
@@ -213,7 +243,7 @@ export function defineObservableProperty(
 
 // ARRAY
 
-// Detects bug in safari 9.1.1 (or iOS 9 safari mobile). See Mobx #364
+// Detects bug in safari 9.1.1 (or iOS 9 safari mobile). See MobX #364
 const safariPrototypeSetterInheritanceBug = (() => {
     let v = false;
     const p = {};
@@ -326,7 +356,6 @@ export class ObservableArray<T> extends StubArray {
 
 	/**
 	 * Converts this array back to a (shallow) javascript structure.
-	 * For a deep clone use mobx.toJS
 	 */
     toJS(): T[] {
         return (this as any).slice();
@@ -334,7 +363,7 @@ export class ObservableArray<T> extends StubArray {
 
     toJSON(): T[] {
         // Used by JSON.stringify
-        return this.toJS();
+        return this.$bobx;
     }
 
     find(predicate: (item: T, index: number, array: ObservableArray<T>) => boolean, thisArg?: any, fromIndex = 0): T | undefined {
@@ -550,7 +579,9 @@ export function isObservableArray(thing: any): thing is IObservableArray<any> {
     return isObject(thing) && Array.isArray(thing.$bobx);
 }
 
-
+function isArrayLike(thing: any) {
+    return b.isArray(thing) || isObservableArray(thing);
+}
 
 export function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue)
