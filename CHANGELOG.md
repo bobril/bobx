@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.2.1
+--
+
+Fixed not marking array as used on build in Array functions.
+
 0.2.0
 --
 

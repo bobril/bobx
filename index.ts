@@ -511,7 +511,8 @@ Object.defineProperty(ObservableArray.prototype, "length", {
     "some"
 ].forEach(funcName => {
     const baseFunc = (Array.prototype as any)[funcName];
-    addHiddenProp(ObservableArray.prototype, funcName, function (this: IAtom) {
+    addHiddenProp(ObservableArray.prototype, funcName, function (this: ObservableArray<any>) {
+        this.$atom.markUsage();
         return baseFunc.apply(this.$bobx, arguments);
     });
 });
@@ -695,6 +696,7 @@ export function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
         };
     }
 }
+
 export interface IObservableFactory {
     // observable overloads
     <T>(): IObservableValue<T>;
