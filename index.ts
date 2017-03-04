@@ -147,7 +147,7 @@ export function isObject(value: any): boolean {
     return value !== null && typeof value === "object";
 }
 
-export function isPlainObject(value: any) {
+export function isPlainObject(value: any): value is object {
     if (value === null || typeof value !== "object")
         return false;
     const proto = Object.getPrototypeOf(value);
@@ -584,6 +584,118 @@ function isArrayLike(thing: any) {
     return b.isArray(thing) || isObservableArray(thing);
 }
 
+const ObservableMapMarker = 0;
+
+export function isObservableMap(thing: any): thing is IObservableMap<any> {
+    return isObject(thing) && thing.$bobx === ObservableMapMarker;
+}
+
+export interface IMap<K, V> {
+    clear(): void;
+    delete(key: K): boolean;
+    forEach(callbackfn: (value: V, index: K, map: IMap<K, V>) => void, thisArg?: any): void;
+    get(key: K): V | undefined;
+    has(key: K): boolean;
+    set(key: K, value?: V): this;
+    readonly size: number;
+}
+
+export interface IKeyValueMap<V> {
+    [key: string]: V;
+}
+
+export type IMapEntry<V> = [string, V];
+
+export type IMapEntries<V> = IMapEntry<V>[];
+
+interface IObservableMap<TValue> extends IMap<string, TValue> {
+    $bobx: 0;
+    $enhancer: IEnhancer<TValue>;
+    $atom: ObservableValue<any>;
+}
+
+export type IObservableMapInitialValues<V> = IMapEntries<V> | IKeyValueMap<V> | IMap<string, V>;
+
+class ObservableMap<TValue> implements IObservableMap<TValue> {
+    size: number;
+
+    $bobx: 0;
+    $enhancer: IEnhancer<TValue>;
+    $atom: ObservableValue<any>;
+    $content: IKeyValueMap<ObservableValue<TValue>>;
+
+    constructor(init: IObservableMapInitialValues<TValue>, enhancer: IEnhancer<TValue>) {
+        this.$enhancer = enhancer;
+        this.$atom = new ObservableValue<any>(null, referenceEnhancer);
+        this.$content = Object.create(null);
+        this.size = 0;
+        if (Array.isArray(init))
+            init.forEach(([key, value]) => this.set(key, value));
+        else if (isObservableMap(init)) {
+            init.forEach((value, key) => this.set(key, value));
+        } else if (isPlainObject(init))
+            Object.keys(init).forEach(key => this.set(key, (init as IKeyValueMap<TValue>)[key]));
+        else if (init != null)
+            throw new Error("Cannot initialize map from " + init);
+    }
+
+    has(key: string): boolean {
+        this.$atom.markUsage();
+        let cont = this.$content[key];
+        return cont !== undefined;
+    }
+
+    get(key: string): TValue | undefined {
+        this.$atom.markUsage();
+        let cont = this.$content[key];
+        if (cont !== undefined) {
+            return cont.get();
+        }
+        return undefined;
+    }
+
+    set(key: string, value: TValue): this {
+        this.$atom.markUsage();
+        let cont = this.$content[key];
+        if (cont !== undefined) {
+            cont.set(value);
+            return this;
+        }
+        this.$atom.invalidate();
+        this.$content[key] = new ObservableValue(value, this.$enhancer);
+        this.size++;
+        return this;
+    }
+
+    clear(): void {
+        if (this.size == 0) return;
+        this.size = 0;
+        this.$content = Object.create(null);
+        this.$atom.invalidate();
+    }
+
+    delete(key: string): boolean {
+        this.$atom.markUsage();
+        let cont = this.$content[key];
+        if (cont !== undefined) {
+            delete this.$content[key];
+            this.size--;
+            return true;
+        }
+        return false;
+    }
+
+    forEach(callbackfn: (value: TValue, index: string, map: IMap<string, TValue>) => void, thisArg?: any): void {
+        this.$atom.markUsage();
+        let c = this.$content;
+        for (let k in c) {
+            callbackfn.call(thisArg, c[k], k, this);
+        }
+    }
+}
+
+addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
+
 export function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue)
         return oldValue;
@@ -596,8 +708,8 @@ export function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
-        for (let key in newValue) {
-            defineObservableProperty(res, behind, key, newValue[key], deepEnhancer);
+        for (let key in newValue as IKeyValueMap<any>) {
+            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], deepEnhancer);
         }
         return res;
     }
@@ -616,8 +728,8 @@ export function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
-        for (let key in newValue) {
-            defineObservableProperty(res, behind, key, newValue[key], referenceEnhancer);
+        for (let key in newValue as IKeyValueMap<any>) {
+            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], referenceEnhancer);
         }
         return res;
     }
@@ -638,8 +750,8 @@ export function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
-        for (let key in newValue) {
-            defineObservableProperty(res, behind, key, newValue[key], deepStructEnhancer);
+        for (let key in newValue as IKeyValueMap<any>) {
+            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], deepStructEnhancer);
         }
         return res;
     }
@@ -717,6 +829,10 @@ export interface IObservableFactory {
 }
 
 export interface IObservableFactories {
+    map<V>(init: IObservableMapInitialValues<V>): IMap<string, V>;
+
+    shallowMap<V>(init: IObservableMapInitialValues<V>): IMap<string, V>;
+
 	/**
 	 * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.
 	 */
@@ -760,6 +876,8 @@ export var observable: IObservableFactory & IObservableFactories & {
     }
 } = createObservable as any;
 
+observable.map = (init: IObservableMapInitialValues<any>) => new ObservableMap(init, deepEnhancer);
+observable.shallowMap = (init: IObservableMapInitialValues<any>) => new ObservableMap(init, referenceEnhancer);
 observable.deep = deepDecorator as any;
 observable.ref = refDecorator as any;
 observable.shallow = shallowDecorator;
