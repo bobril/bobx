@@ -689,7 +689,7 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
         this.$atom.markUsage();
         let c = this.$content;
         for (let k in c) {
-            callbackfn.call(thisArg, c[k], k, this);
+            callbackfn.call(thisArg, c[k].get(), k, this);
         }
     }
 }
@@ -829,9 +829,9 @@ export interface IObservableFactory {
 }
 
 export interface IObservableFactories {
-    map<V>(init: IObservableMapInitialValues<V>): IMap<string, V>;
+    map<V>(init?: IObservableMapInitialValues<V>): IMap<string, V>;
 
-    shallowMap<V>(init: IObservableMapInitialValues<V>): IMap<string, V>;
+    shallowMap<V>(init?: IObservableMapInitialValues<V>): IMap<string, V>;
 
 	/**
 	 * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.

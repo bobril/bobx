@@ -5,7 +5,7 @@ describe("ObservableArray", () => {
         observable([]);
     });
 
-    it("getset", () => {
+    it("get set", () => {
         let a = observable([42]);
         expect(a.length).toBe(1);
         expect(a[0]).toBe(42);
