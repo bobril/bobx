@@ -17,6 +17,14 @@ describe("ObservableMap", () => {
         expect(m.get("a")).toBe(2);
     });
 
+    it("prop", () => {
+        let m = observable.map({ a: 1, b: "B" });
+        let prop = m.prop("b");
+        expect(prop()).toBe("B");
+        expect(prop("C")).toBe("C");
+        expect(m.get("b")).toBe("C");
+    });
+
     it("multiple instances", () => {
         let m1 = observable.map<string>();
         let m2 = observable.map<string>();

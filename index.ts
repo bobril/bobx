@@ -1,6 +1,6 @@
 import * as b from 'bobril';
 
-export function addHiddenProp(object: any, propName: string, value: any) {
+function addHiddenProp(object: any, propName: string, value: any) {
     Object.defineProperty(object, propName, {
         enumerable: false,
         writable: true,
@@ -9,7 +9,7 @@ export function addHiddenProp(object: any, propName: string, value: any) {
     });
 }
 
-export function addHiddenFinalProp(object: any, propName: string, value: any) {
+function addHiddenFinalProp(object: any, propName: string, value: any) {
     Object.defineProperty(object, propName, {
         enumerable: false,
         writable: false,
@@ -18,7 +18,7 @@ export function addHiddenFinalProp(object: any, propName: string, value: any) {
     });
 }
 
-export function makeNonEnumerable(object: any, propNames: string[]) {
+function makeNonEnumerable(object: any, propNames: string[]) {
     for (let i = 0; i < propNames.length; i++) {
         addHiddenProp(object, propNames[i], object[propNames[i]]);
     }
@@ -42,6 +42,7 @@ type IEnhancer<T> = (newValue: T, curValue: T | undefined) => T;
 export interface IObservableValue<T> {
     get(): T;
     set(value: T): void;
+    prop(): b.IProp<T>;
 }
 
 
@@ -51,7 +52,7 @@ function allocId() {
     return "" + ++lastId;
 }
 
-export class ObservableValue<T> implements IObservableValue<T>, IAtom {
+class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     constructor(value: T, enhancer: IEnhancer<T>) {
         this.atomId = allocId();
@@ -59,6 +60,7 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
         this.value = enhancer(value, undefined);
         this.enhancer = enhancer;
         this.$bobx = null;
+        this._prop = undefined;
     }
 
     $bobx: null;
@@ -77,6 +79,23 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
             this.value = newValue;
         }
     }
+
+    prop(): b.IProp<T> {
+        let p = this._prop;
+        if (p === undefined) {
+            p = (value?: T) => {
+                if (value === undefined) {
+                    return this.get();
+                }
+                this.set(value);
+                return this.value;
+            };
+            this._prop = p;
+        }
+        return p;
+    }
+
+    _prop: b.IProp<T> | undefined;
 
     atomId: string;
 
@@ -135,7 +154,7 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
     previousBeforeRender(node, phase);
 });
 
-export function referenceEnhancer<T>(newValue: T, _oldValue: T | undefined): T {
+function referenceEnhancer<T>(newValue: T, _oldValue: T | undefined): T {
     return newValue;
 }
 
@@ -143,11 +162,11 @@ export function isObservable(value: any) {
     return value != null && value.$bobx !== undefined;
 }
 
-export function isObject(value: any): boolean {
+function isObject(value: any): boolean {
     return value !== null && typeof value === "object";
 }
 
-export function isPlainObject(value: any): value is object {
+function isPlainObject(value: any): value is object {
     if (value === null || typeof value !== "object")
         return false;
     const proto = Object.getPrototypeOf(value);
@@ -172,7 +191,7 @@ function asObservableClass(target: Object): ObservableObjectBehind {
     return behind;
 }
 
-export function deepEqual(a: any, b: any) {
+function deepEqual(a: any, b: any) {
     if (a === b)
         return true;
     if (typeof a !== "object" || typeof b !== "object")
@@ -212,7 +231,7 @@ export function deepEqual(a: any, b: any) {
 
 const observablePropertyConfigs: { [propName: string]: any } = Object.create(null);
 
-export function generateObservablePropConfig(propName: string) {
+function generateObservablePropConfig(propName: string) {
     const config = observablePropertyConfigs[propName];
     if (config)
         return config;
@@ -230,7 +249,7 @@ export function generateObservablePropConfig(propName: string) {
 
 type ObservableObjectBehind = { [prop: string]: IObservableValue<any> };
 
-export function defineObservableProperty(
+function defineObservableProperty(
     target: Object,
     behind: ObservableObjectBehind,
     propName: string,
@@ -258,10 +277,7 @@ export interface IObservableArray<T> extends Array<T> {
     find(predicate: (item: T, index: number, array: IObservableArray<T>) => boolean, thisArg?: any, fromIndex?: number): T;
     remove(value: T): boolean;
     move(fromIndex: number, toIndex: number): void;
-
-    $bobx: Array<T>;
 }
-
 
 /**
  * This array buffer contains two lists of properties, so that all arrays
@@ -271,11 +287,11 @@ export interface IObservableArray<T> extends Array<T> {
 let observableArrayPropCount = 0;
 
 // Typescript workaround to make sure ObservableArray extends Array
-export class StubArray {
+class StubArray {
 }
 StubArray.prototype = [];
 
-export class ObservableArray<T> extends StubArray {
+class ObservableArray<T> extends StubArray {
     $bobx: Array<T>;
     $enhancer: IEnhancer<T>;
     $atom: ObservableValue<any>;
@@ -345,7 +361,7 @@ export class ObservableArray<T> extends StubArray {
 
     concat(...arrays: T[][]): T[] {
         this.$atom.markUsage();
-        return Array.prototype.concat.apply(this.$bobx, arrays.map(a => isObservableArray(a) ? a.$bobx : a));
+        return Array.prototype.concat.apply(this.$bobx, arrays.map(a => isObservableArray(a) ? (a as any as ObservableArray<T>).$bobx : a));
     }
 
     replace(newItems: T[]) {
@@ -450,7 +466,6 @@ export class ObservableArray<T> extends StubArray {
         this.$atom.markUsage();
         return Array.prototype.toString.apply(this.$bobx, arguments);
     }
-
 }
 
 /**
@@ -577,7 +592,7 @@ function reserveArrayBuffer(max: number) {
 reserveArrayBuffer(100);
 
 export function isObservableArray(thing: any): thing is IObservableArray<any> {
-    return isObject(thing) && Array.isArray(thing.$bobx);
+    return isObject(thing) && b.isArray(thing.$bobx);
 }
 
 function isArrayLike(thing: any) {
@@ -608,10 +623,8 @@ export type IMapEntry<V> = [string, V];
 
 export type IMapEntries<V> = IMapEntry<V>[];
 
-interface IObservableMap<TValue> extends IMap<string, TValue> {
-    $bobx: 0;
-    $enhancer: IEnhancer<TValue>;
-    $atom: ObservableValue<any>;
+export interface IObservableMap<TValue> extends IMap<string, TValue> {
+    prop(key: string): b.IProp<TValue>;
 }
 
 export type IObservableMapInitialValues<V> = IMapEntries<V> | IKeyValueMap<V> | IMap<string, V>;
@@ -667,6 +680,21 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
         return this;
     }
 
+    prop(key: string): b.IProp<TValue> {
+        this.$atom.markUsage();
+        let cont = this.$content[key];
+        if (cont !== undefined) {
+            return cont.prop();
+        }
+        return (value?: TValue) => {
+            if (value === undefined) {
+                return this.get(key)!;
+            }
+            this.set(key, value);
+            return this.get(key)!;
+        };
+    }
+
     clear(): void {
         if (this.size == 0) return;
         this.size = 0;
@@ -696,7 +724,7 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
 
 addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
 
-export function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
+function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue)
         return oldValue;
     if (isObservable(newValue))
@@ -716,7 +744,7 @@ export function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     return newValue;
 }
 
-export function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
+function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue)
         return oldValue;
     if (isObservable(newValue))
@@ -736,7 +764,7 @@ export function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     throw new Error("shallow observable cannot be used for primitive values");
 }
 
-export function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
+function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (deepEqual(newValue, oldValue))
         return oldValue!;
 
@@ -758,7 +786,8 @@ export function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
 
     return newValue;
 }
-export function refStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
+
+function refStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (deepEqual(newValue, oldValue))
         return oldValue!;
     return newValue;
@@ -772,7 +801,7 @@ const refStructDecorator = createDecoratorForEnhancer(refStructEnhancer);
 
 const LazyClass = {};
 
-export function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
+function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
     return function classPropertyDecorator(target: any, propName: string, _descriptor: PropertyDescriptor) {
         // target is actually prototype not instance
         if (!("$bobx" in target)) {
@@ -813,7 +842,7 @@ export interface IObservableFactory {
     // observable overloads
     <T>(): IObservableValue<T>;
     (target: Object, key: string, baseDescriptor?: PropertyDescriptor): any;
-    //<T>(value: T[]): IObservableArray<T>;
+    <T>(value: T[]): IObservableArray<T>;
     (value: string): IObservableValue<string>;
     (value: boolean): IObservableValue<boolean>;
     (value: number): IObservableValue<number>;
@@ -823,15 +852,15 @@ export interface IObservableFactory {
     <T>(value: null | undefined): IObservableValue<T>;
     (value: null | undefined): IObservableValue<any>;
     (): IObservableValue<any>;
-    //<T>(value: IMap<string | number | boolean, T>): ObservableMap<T>;
+    //<T>(value: IMap<string | number | boolean, T>): IObservableMap<T>;
     <T extends Object>(value: T): T;
     <T>(value: T): IObservableValue<T>;
 }
 
 export interface IObservableFactories {
-    map<V>(init?: IObservableMapInitialValues<V>): IMap<string, V>;
+    map<V>(init?: IObservableMapInitialValues<V>): IObservableMap<V>;
 
-    shallowMap<V>(init?: IObservableMapInitialValues<V>): IMap<string, V>;
+    shallowMap<V>(init?: IObservableMapInitialValues<V>): IObservableMap<V>;
 
 	/**
 	 * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.
@@ -884,3 +913,34 @@ observable.shallow = shallowDecorator;
 observable.struct = deepStructDecorator;
 observable.deep.struct = deepStructDecorator;
 observable.ref.struct = refStructDecorator;
+
+export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
+export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
+export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]> {
+    if (obj == null)
+        throw new Error("observableProp parameter is " + obj);
+    let bobx = (obj as any as IAtom).$bobx;
+    if (bobx === undefined)
+        throw new Error("observableProp parameter is not observable: " + obj);
+    if (bobx === ObservableMapMarker)
+        throw new Error("observableProp parameter is observableMap");
+    if (b.isArray(bobx)) {
+        // Does this pays off to cache and/or inline?
+        return (value?: any) => {
+            if (value !== undefined) {
+                obj[key] = value;
+            }
+            return obj[key];
+        };
+    }
+    if (Object.getPrototypeOf(bobx) === undefined) {
+        return (bobx[key] as ObservableValue<T[K]>).prop();
+    }
+    bobx = asObservableClass(obj);
+    let val = bobx[key];
+    if (val === undefined) {
+        obj[key]; // Has side effect to create ObservableValue 
+        val = bobx[key]!;
+    }
+    return val.prop();
+}

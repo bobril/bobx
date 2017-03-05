@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.3.0
+--
+
+Added observable.map and shallowMap. Added observableProp for nice Bobril usage. Removed some useless exports.
+
 0.2.1
 --
 

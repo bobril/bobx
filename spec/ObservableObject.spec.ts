@@ -5,11 +5,19 @@ describe("ObservableObject", () => {
         bobx.observable({ a: 1, b: "B" });
     });
 
-    it("getset", () => {
+    it("get set", () => {
         let v = bobx.observable({ a: 1, b: "B" });
         expect(v.a).toBe(1);
         expect(v.b).toBe("B");
         v.a = 42;
         expect(v.a).toBe(42);
+    });
+
+    it("prop", () => {
+        let v = bobx.observable({ a: 1, b: "B" });
+        let prop = bobx.observableProp(v, "b");
+        expect(prop()).toBe("B");
+        expect(prop("C")).toBe("C");
+        expect(v.b).toBe("C");
     });
 });

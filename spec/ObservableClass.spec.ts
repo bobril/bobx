@@ -1,5 +1,5 @@
 import * as b from 'bobril';
-import { observable } from "../index";
+import { observable, observableProp } from "../index";
 
 class Person {
     @observable name: string;
@@ -20,7 +20,7 @@ describe("ObservableClass", () => {
         new Person();
     });
 
-    it("getset", () => {
+    it("get set", () => {
         let o = new Person();
         expect(o.name).toBeUndefined();
         o.name = "Bobris";
@@ -40,6 +40,22 @@ describe("ObservableClass", () => {
         expect(pd.name).toBe("B");
         pd.name = "Bobris";
         expect(pd.name).toBe("Bobris");
+    });
+
+    it("prop", () => {
+        let o = new Person();
+        let prop = observableProp(o, "name");
+        expect(prop()).toBe(undefined);
+        expect(prop("Bobris")).toBe("Bobris");
+        expect(o.name).toBe("Bobris");
+    });
+
+    it("prop", () => {
+        let o = new PersonDefault();
+        let prop = observableProp(o, "name");
+        expect(prop()).toBe("B");
+        expect(prop("Bobris")).toBe("Bobris");
+        expect(o.name).toBe("Bobris");
     });
 });
 

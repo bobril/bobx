@@ -1,6 +1,6 @@
 {
   "name": "bobx",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Mobx like library for Bobril",
   "main": "index.js",
   "types": "index.d.ts",
@@ -18,8 +18,7 @@
       "noUnusedParameters": true,
       "noImplicitReturns": true,
       "noFallthroughCasesInSwitch": true,
-      "strictNullChecks": true,
-      "experimentalDecorators": true
+      "strictNullChecks": true
     }
   },
   "author": "Boris Letocha",

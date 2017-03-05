@@ -1,4 +1,4 @@
-import { observable } from "../index";
+import { observable, observableProp } from "../index";
 
 describe("ObservableArray", () => {
     it("construct", () => {
@@ -19,5 +19,13 @@ describe("ObservableArray", () => {
         a1.push(1);
         a2.push(2);
         expect(a1[0]).toBe(1);
+    });
+
+    it("prop", () => {
+        let v = observable([42]);
+        let prop = observableProp(v, 0);
+        expect(prop()).toBe(42);
+        expect(prop(1)).toBe(1);
+        expect(v[0]).toBe(1);
     });
 });
