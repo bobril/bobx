@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.4.0
+--
+
+Added tests for Bobril ctxClass. Bobril 6.1.0 or better required.
+
 0.3.0
 --
 

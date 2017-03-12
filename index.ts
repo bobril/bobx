@@ -30,7 +30,7 @@ interface IBobXInCtx {
 }
 
 interface IBobXBobrilCtx extends b.IBobrilCtx {
-    $bobx: IBobXInCtx | undefined;
+    $bobxCtx: IBobXInCtx | undefined;
 }
 
 interface IAtom {
@@ -105,11 +105,11 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
         const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
         if (ctx === undefined) // outside of render => nothing to mark
             return;
-        let bobx = ctx.$bobx;
+        let bobx = ctx.$bobxCtx;
         if (bobx === undefined) {
             bobx = Object.create(null) as IBobXInCtx;
             bobx.ctxId = allocId();
-            ctx.$bobx = bobx;
+            ctx.$bobxCtx = bobx;
         }
         if (bobx[this.atomId] !== undefined)
             return;
@@ -127,7 +127,7 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
         this.ctxs = undefined;
         for (let ctxId in ctxs) {
             const ctx = ctxs[ctxId];
-            delete ctx.$bobx![this.atomId];
+            delete ctx.$bobxCtx![this.atomId];
             b.invalidate(ctx);
         }
     }
@@ -140,11 +140,11 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
 let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.RenderPhase) => {
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
         const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
-        let bobx = ctx.$bobx;
+        let bobx = ctx.$bobxCtx;
         if (bobx === undefined)
             return;
         const ctxId = bobx.ctxId;
-        ctx.$bobx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
+        ctx.$bobxCtx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
         for (let atomId in bobx) {
             if (atomId === "ctxId")
                 continue;
