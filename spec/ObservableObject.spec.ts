@@ -20,4 +20,10 @@ describe("ObservableObject", () => {
         expect(prop("C")).toBe("C");
         expect(v.b).toBe("C");
     });
+
+    it("toJSON", () => {
+        let o = { a: 1, b: "B" };
+        let oo = bobx.observable(o);
+        expect(JSON.stringify(oo)).toBe(JSON.stringify(o));
+    });
 });

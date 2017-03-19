@@ -28,4 +28,9 @@ describe("ObservableArray", () => {
         expect(prop(1)).toBe(1);
         expect(v[0]).toBe(1);
     });
+
+    it("toJSON", () => {
+        let v = observable([42]);
+        expect(JSON.stringify(v)).toBe(JSON.stringify([42]));
+    });
 });

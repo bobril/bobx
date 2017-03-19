@@ -42,7 +42,7 @@ describe("ObservableClass", () => {
         expect(pd.name).toBe("Bobris");
     });
 
-    it("prop", () => {
+    it("prop without default value", () => {
         let o = new Person();
         let prop = observableProp(o, "name");
         expect(prop()).toBe(undefined);
@@ -50,12 +50,17 @@ describe("ObservableClass", () => {
         expect(o.name).toBe("Bobris");
     });
 
-    it("prop", () => {
+    it("prop with default value", () => {
         let o = new PersonDefault();
         let prop = observableProp(o, "name");
         expect(prop()).toBe("B");
         expect(prop("Bobris")).toBe("Bobris");
         expect(o.name).toBe("Bobris");
+    });
+
+    it("toJSON", () => {
+        let o = new PersonDefault();
+        expect(JSON.stringify(o)).toBe(`{"name":"B"}`);
     });
 });
 

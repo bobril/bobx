@@ -73,4 +73,9 @@ describe("ObservableMap", () => {
         m.forEach(() => fail());
     });
 
+    it("toJSON", () => {
+        var m = { a: 2, b: 4 };
+        let om = observable.map(m);
+        expect(JSON.stringify(om)).toBe(JSON.stringify(m));
+    });
 });

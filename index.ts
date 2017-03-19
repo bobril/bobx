@@ -191,7 +191,7 @@ function asObservableClass(target: Object): ObservableObjectBehind {
     return behind;
 }
 
-function deepEqual(a: any, b: any) {
+export function deepEqual(a: any, b: any): boolean {
     if (a === b)
         return true;
     if (typeof a !== "object" || typeof b !== "object")
@@ -209,24 +209,65 @@ function deepEqual(a: any, b: any) {
         }
         return true;
     }
-    if (typeof a === "object" && typeof b === "object") {
-        if (a === null || b === null)
-            return false;
+    if (isObservableMap(a)) {
+        if (isObservableMap(b)) {
+            if (a.size != b.size) return false;
+            let res = true;
+            a.forEach((v, k) => {
+                if (!res) return;
+                if (!b.has(k)) { res = false; return; }
+                if (!deepEqual(v, b.get(k))) res = false;
+            });
+            return res;
+        }
+        let bb = b;
+        if (isObservable(b)) bb = b.$bobx;
         let bKeys = 0;
-        for (let _prop in b) {
+        for (let _prop in bb) {
             bKeys++;
         }
-        let aKeys = 0;
-        for (let prop in a) {
-            aKeys++;
-            if (!(prop in b))
-                return false;
-            if (!deepEqual(a[prop], b[prop]))
-                return false;
-        }
-        return aKeys == bKeys;
+        if (a.size != bKeys) return false;
+        let res = true;
+        a.forEach((v, k) => {
+            if (!res) return;
+            if (!(k in bb)) { res = false; return; }
+            if (!deepEqual(v, b[k])) res = false;
+        });
+        return res;
     }
-    return false;
+    if (isObservableMap(b)) {
+        let aa = a;
+        if (isObservable(a)) aa = a.$bobx;
+        let aKeys = 0;
+        for (let _prop in aa) {
+            aKeys++;
+        }
+        if (b.size != aKeys) return false;
+        let res = true;
+        b.forEach((v, k) => {
+            if (!res) return;
+            if (!(k in aa)) { res = false; return; }
+            if (!deepEqual(v, a[k])) res = false;
+        });
+        return res;
+    }
+    let aa = a;
+    let bb = b;
+    if (isObservable(a)) aa = a.$bobx;
+    if (isObservable(b)) bb = b.$bobx;
+    let bKeys = 0;
+    for (let _prop in bb) {
+        bKeys++;
+    }
+    let aKeys = 0;
+    for (let prop in aa) {
+        aKeys++;
+        if (!(prop in bb))
+            return false;
+        if (!deepEqual(a[prop], b[prop]))
+            return false;
+    }
+    return aKeys == bKeys;
 }
 
 const observablePropertyConfigs: { [propName: string]: any } = Object.create(null);
@@ -493,6 +534,8 @@ makeNonEnumerable(ObservableArray.prototype, [
     "move",
     "toString",
     "toLocaleString",
+    "setArrayLength",
+    "checkIndex",
     "$atom",
     "$bobx",
     "$enhancer"
@@ -720,6 +763,10 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
             callbackfn.call(thisArg, c[k].get(), k, this);
         }
     }
+
+    toJSON() {
+        return this.$content;
+    }
 }
 
 addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
@@ -811,6 +858,11 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
                 configurable: true,
                 value: LazyClass
             });
+            if (!("toJSON" in target)) {
+                target.toJSON = function (this: IAtom) {
+                    return this.$bobx;
+                }
+            }
         }
         return {
             configurable: true,

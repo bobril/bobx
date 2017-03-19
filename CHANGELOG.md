@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.5.0
+--
+
+Finished deepEqual for struct based tests.
+
 0.4.0
 --
 
