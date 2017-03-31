@@ -2,6 +2,17 @@
 # yarn lockfile v1
 
 
-bobril@^6.2.0:
+bobflux@^8.1.1:
+  version "8.1.1"
+  resolved "https://registry.yarnpkg.com/bobflux/-/bobflux-8.1.1.tgz#44ca8cc0026f0b1a7dfa0eaec91cdd71a7017c5d"
+  dependencies:
+    bobril "*"
+    fun-model "5.*"
+
+bobril@*, bobril@^6.2.0:
   version "6.2.0"
   resolved "https://registry.yarnpkg.com/bobril/-/bobril-6.2.0.tgz#52a433a6e8f02a17bcf8eb16090fa4d14270e36c"
+
+fun-model@5.*:
+  version "5.0.1"
+  resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-5.0.1.tgz#a69da07ab6dd17065d56f74a6b724fa22c45920f"
