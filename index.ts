@@ -133,6 +133,11 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
             const ctx = ctxs[ctxId];
             delete ctx.$bobxCtx![this.atomId];
             b.invalidate(ctx);
+            if (detectedShouldChange) {
+                if ((ctx as any as IBobxShouldChange).$bobxShouldChange === false) {
+                    (ctx as any as IBobxShouldChange).$bobxShouldChange = true;
+                }
+            }
         }
     }
 
@@ -141,18 +146,63 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
     }
 }
 
+interface IBobxShouldChange {
+    $bobxShouldChange: boolean;
+}
+
+let detectedShouldChange = false;
+
 let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.RenderPhase) => {
+    const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
+    if (phase === b.RenderPhase.Create) {
+        // If this is component with shouldChange lets monkey patch it
+        const comp = ctx.me.component;
+        const oldShouldChange = comp.shouldChange;
+        if (oldShouldChange !== undefined && (oldShouldChange as any).bobx === undefined) {
+            detectedShouldChange = true;
+            (ctx as any as IBobxShouldChange).$bobxShouldChange = false;
+            const newShouldChange = function (this: any, ctx: IBobXBobrilCtx & IBobxShouldChange, me: b.IBobrilNode, oldMe: b.IBobrilCacheNode): boolean {
+                let res = oldShouldChange.call(this, ctx, me, oldMe);
+                if (ctx.$bobxShouldChange) {
+                    res = true;
+                    ctx.$bobxShouldChange = false;
+                }
+                if (res) {
+                    let bobx = ctx.$bobxCtx;
+                    if (bobx === undefined)
+                        return res;
+                    const ctxId = bobx.ctxId;
+                    ctx.$bobxCtx = { ctxId };
+                    for (let atomId in bobx) {
+                        if (atomId === "ctxId")
+                            continue;
+                        delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
+                    }
+                }
+                return res;
+            };
+            (newShouldChange as any).bobx = true;
+            comp.shouldChange = newShouldChange as any;
+        }
+    }
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
-        const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
+        if (detectedShouldChange && phase !== b.RenderPhase.Destroy) {
+            const comp = ctx.me.component;
+            const shouldChange = comp.shouldChange;
+            if (shouldChange !== undefined) {
+                previousBeforeRender(node, phase);
+                return;
+            }
+        }
         let bobx = ctx.$bobxCtx;
-        if (bobx === undefined)
-            return;
-        const ctxId = bobx.ctxId;
-        ctx.$bobxCtx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
-        for (let atomId in bobx) {
-            if (atomId === "ctxId")
-                continue;
-            delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
+        if (bobx !== undefined) {
+            const ctxId = bobx.ctxId;
+            ctx.$bobxCtx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
+            for (let atomId in bobx) {
+                if (atomId === "ctxId")
+                    continue;
+                delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
+            }
         }
     }
     previousBeforeRender(node, phase);
