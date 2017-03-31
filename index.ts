@@ -1,5 +1,9 @@
 import * as b from 'bobril';
 
+function equalsIncludingNaN(a: any, b: any) {
+    return (a === b) || (a !== a && b !== b); // it correctly returns true for NaN and NaN
+}
+
 function addHiddenProp(object: any, propName: string, value: any) {
     Object.defineProperty(object, propName, {
         enumerable: false,
@@ -74,7 +78,7 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     set(value: T): void {
         const newValue = this.enhancer(value, this.value);
-        if (newValue !== this.value) {
+        if (!equalsIncludingNaN(newValue, this.value)) {
             this.invalidate();
             this.value = newValue;
         }
@@ -186,7 +190,7 @@ function asObservableClass(target: Object): ObservableObjectBehind {
     let behind = (target as IAtom).$bobx;
     if (behind !== LazyClass)
         return behind;
-    behind = Object.create(null);
+    behind = {};
     (target as any).$bobx = behind;
     return behind;
 }
@@ -194,8 +198,10 @@ function asObservableClass(target: Object): ObservableObjectBehind {
 export function deepEqual(a: any, b: any): boolean {
     if (a === b)
         return true;
-    if (typeof a !== "object" || typeof b !== "object")
+    if (typeof a !== "object" || typeof b !== "object") {
+        if (a !== a && b !== b) return true;
         return false;
+    }
     if (isArrayLike(a)) {
         if (!isArrayLike(b)) return false;
         const length = a.length;
@@ -868,18 +874,18 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
             configurable: true,
             enumerable: false,
             get: function (this: IAtom) {
-                let behind = asObservableClass(this);
-                let val = behind[propName];
+                let val = this.$bobx[propName];
                 if (val === undefined) {
+                    let behind = asObservableClass(this);
                     val = new ObservableValue(undefined, enhancer);
                     behind[propName] = val;
                 }
                 return val.get();
             },
             set: function (this: IAtom, value: any) {
-                let behind = asObservableClass(this);
-                let val = behind[propName];
+                let val = this.$bobx[propName];
                 if (val === undefined) {
+                    let behind = asObservableClass(this);
                     val = new ObservableValue(value, enhancer);
                     behind[propName] = val;
                 } else {
