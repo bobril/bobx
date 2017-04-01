@@ -10,8 +10,8 @@ bobflux@^8.1.1:
     fun-model "5.*"
 
 bobril@*, bobril@^6.2.0:
-  version "6.2.0"
-  resolved "https://registry.yarnpkg.com/bobril/-/bobril-6.2.0.tgz#52a433a6e8f02a17bcf8eb16090fa4d14270e36c"
+  version "6.3.0"
+  resolved "https://registry.yarnpkg.com/bobril/-/bobril-6.3.0.tgz#2d85a333267b0ea2a3dac8707f187cc42f38db13"
 
 fun-model@5.*:
   version "5.0.1"

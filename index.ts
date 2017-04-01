@@ -133,11 +133,6 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
             const ctx = ctxs[ctxId];
             delete ctx.$bobxCtx![this.atomId];
             b.invalidate(ctx);
-            if (detectedShouldChange) {
-                if ((ctx as any as IBobxShouldChange).$bobxShouldChange === false) {
-                    (ctx as any as IBobxShouldChange).$bobxShouldChange = true;
-                }
-            }
         }
     }
 
@@ -146,54 +141,9 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
     }
 }
 
-interface IBobxShouldChange {
-    $bobxShouldChange: boolean;
-}
-
-let detectedShouldChange = false;
-
 let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.RenderPhase) => {
     const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
-    if (phase === b.RenderPhase.Create) {
-        // If this is component with shouldChange lets monkey patch it
-        const comp = ctx.me.component;
-        const oldShouldChange = comp.shouldChange;
-        if (oldShouldChange !== undefined && (oldShouldChange as any).bobx === undefined) {
-            detectedShouldChange = true;
-            (ctx as any as IBobxShouldChange).$bobxShouldChange = false;
-            const newShouldChange = function (this: any, ctx: IBobXBobrilCtx & IBobxShouldChange, me: b.IBobrilNode, oldMe: b.IBobrilCacheNode): boolean {
-                let res = oldShouldChange.call(this, ctx, me, oldMe);
-                if (ctx.$bobxShouldChange) {
-                    res = true;
-                    ctx.$bobxShouldChange = false;
-                }
-                if (res) {
-                    let bobx = ctx.$bobxCtx;
-                    if (bobx === undefined)
-                        return res;
-                    const ctxId = bobx.ctxId;
-                    ctx.$bobxCtx = { ctxId };
-                    for (let atomId in bobx) {
-                        if (atomId === "ctxId")
-                            continue;
-                        delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
-                    }
-                }
-                return res;
-            };
-            (newShouldChange as any).bobx = true;
-            comp.shouldChange = newShouldChange as any;
-        }
-    }
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
-        if (detectedShouldChange && phase !== b.RenderPhase.Destroy) {
-            const comp = ctx.me.component;
-            const shouldChange = comp.shouldChange;
-            if (shouldChange !== undefined) {
-                previousBeforeRender(node, phase);
-                return;
-            }
-        }
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             const ctxId = bobx.ctxId;
@@ -729,8 +679,12 @@ export interface IObservableMap<TValue> extends IMap<string, TValue> {
 export type IObservableMapInitialValues<V> = IMapEntries<V> | IKeyValueMap<V> | IMap<string, V>;
 
 class ObservableMap<TValue> implements IObservableMap<TValue> {
-    size: number;
+    _size: number;
 
+    get size(): number {
+        this.$atom.markUsage();
+        return this._size;
+    }
     $bobx: 0;
     $enhancer: IEnhancer<TValue>;
     $atom: ObservableValue<any>;
@@ -740,7 +694,7 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
         this.$enhancer = enhancer;
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
         this.$content = Object.create(null);
-        this.size = 0;
+        this._size = 0;
         if (Array.isArray(init))
             init.forEach(([key, value]) => this.set(key, value));
         else if (isObservableMap(init)) {
@@ -752,22 +706,25 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     }
 
     has(key: string): boolean {
-        this.$atom.markUsage();
         let cont = this.$content[key];
-        return cont !== undefined;
+        if (cont !== undefined) {
+            cont.markUsage();
+            return true;
+        }
+        this.$atom.markUsage();
+        return false;
     }
 
     get(key: string): TValue | undefined {
-        this.$atom.markUsage();
         let cont = this.$content[key];
         if (cont !== undefined) {
             return cont.get();
         }
+        this.$atom.markUsage();
         return undefined;
     }
 
     set(key: string, value: TValue): this {
-        this.$atom.markUsage();
         let cont = this.$content[key];
         if (cont !== undefined) {
             cont.set(value);
@@ -775,16 +732,17 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
         }
         this.$atom.invalidate();
         this.$content[key] = new ObservableValue(value, this.$enhancer);
-        this.size++;
+        this._size++;
         return this;
     }
 
     prop(key: string): b.IProp<TValue> {
-        this.$atom.markUsage();
         let cont = this.$content[key];
         if (cont !== undefined) {
+            cont.markUsage();
             return cont.prop();
         }
+        this.$atom.markUsage();
         return (value?: TValue) => {
             if (value === undefined) {
                 return this.get(key)!;
@@ -795,18 +753,23 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     }
 
     clear(): void {
-        if (this.size == 0) return;
-        this.size = 0;
-        this.$content = Object.create(null);
+        if (this._size == 0) return;
+        let c = this.$content;
+        for (let k in c) {
+            c[k].invalidate();
+        }
         this.$atom.invalidate();
+        this._size = 0;
+        this.$content = Object.create(null);
     }
 
     delete(key: string): boolean {
-        this.$atom.markUsage();
+        this.$atom.invalidate();
         let cont = this.$content[key];
         if (cont !== undefined) {
+            cont.invalidate();
             delete this.$content[key];
-            this.size--;
+            this._size--;
             return true;
         }
         return false;
