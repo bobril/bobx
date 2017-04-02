@@ -4,7 +4,7 @@ CHANGELOG
 0.6.0
 --
 
-Speed up. Fixes in Observable map. Fixes for shouldChange. New tests. Requires Bobril 6.3.0+.
+Speed up. Fixes in Observable map. Fixes for shouldChange. New tests. Requires Bobril 6.3.1+.
 
 0.5.0
 --

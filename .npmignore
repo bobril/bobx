@@ -1,4 +1,5 @@
 spec/
+example/
 example.ts
 tsconfig.json
 yarn.lock
