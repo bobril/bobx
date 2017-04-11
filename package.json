@@ -1,6 +1,6 @@
 {
   "name": "bobx",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Mobx like library for Bobril",
   "main": "index.js",
   "types": "index.d.ts",
@@ -24,8 +24,7 @@
   "author": "Boris Letocha",
   "license": "MIT",
   "dependencies": {
-    "bobril": "^7.0.0",
-    "typescript": "^2.2.2"
+    "bobril": "^7.0.0"
   },
   "devDependencies": {
     "bobflux": "*"
