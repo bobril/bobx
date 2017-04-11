@@ -1,7 +1,7 @@
 import * as b from 'bobril';
 import { observable } from '../index';
 
-class CounterCtx extends b.BobrilCtx {
+class CounterCtx extends b.BobrilCtx<any> {
     @observable n = 0;
     interval: number = -1;
     start() {

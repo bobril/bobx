@@ -1,7 +1,7 @@
 import * as b from 'bobril';
 import { observable } from '../index';
 
-class CounterCtx extends b.BobrilCtx {
+class CounterCtx extends b.BobrilCtx<any> {
     constructor() {
         super();
         this.counter = 0;
