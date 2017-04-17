@@ -1,6 +1,16 @@
 CHANGELOG
 ===
 
+0.8.0
+--
+
+Implement @computed functions like in Mobx. More tests needed.
+
+0.7.1
+--
+
+Update to Bobril 7.0.
+
 0.6.0
 --
 

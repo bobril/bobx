@@ -29,7 +29,7 @@
     ],
     "compileOnSave": false,
     "files": [
-        "C:/bobril/bobril-build/typings/jasmine/jasmine.d.ts",
+        "c:/Research/bobril-build/typings/jasmine/jasmine.d.ts",
         "node_modules/bobril/jsx.d.ts"
     ]
 }

@@ -34,12 +34,24 @@ interface IBobXInCtx {
 }
 
 interface IBobXBobrilCtx extends b.IBobrilCtx {
-    $bobxCtx: IBobXInCtx | undefined;
+    $bobxCtx?: IBobXInCtx | undefined;
 }
 
-interface IAtom {
+interface IObservable {
     $bobx: any;
 }
+interface IAtom extends IObservable {
+    atomId: string;
+}
+
+interface IBobxComputed extends IAtom {
+    $bobx: null;
+    markUsing(atomId: string, atom: IAtom): boolean;
+    invalidateBy(atomId: string): void;
+    update(): void;
+}
+
+type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
 
 type IEnhancer<T> = (newValue: T, curValue: T | undefined) => T;
 
@@ -54,6 +66,10 @@ let lastId = 0;
 
 function allocId() {
     return "" + ++lastId;
+}
+
+function isIBobxComputed(v: IBobxCallerCtx): v is IBobxComputed {
+    return (v as IBobxComputed).$bobx === null;
 }
 
 class ObservableValue<T> implements IObservableValue<T>, IAtom {
@@ -103,25 +119,36 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     atomId: string;
 
-    ctxs: { [ctxId: string]: IBobXBobrilCtx } | undefined;
+    ctxs: { [ctxId: string]: IBobxCallerCtx } | undefined;
 
     markUsage() {
-        const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
+        const ctx = b.getCurrentCtx() as IBobxCallerCtx;
         if (ctx === undefined) // outside of render => nothing to mark
             return;
-        let bobx = ctx.$bobxCtx;
-        if (bobx === undefined) {
-            bobx = Object.create(null) as IBobXInCtx;
-            bobx.ctxId = allocId();
-            ctx.$bobxCtx = bobx;
+        if (isIBobxComputed(ctx)) {
+            if (ctx.markUsing(this.atomId, this)) {
+                let ctxs = this.ctxs;
+                if (ctxs === undefined) {
+                    ctxs = Object.create(null);
+                    this.ctxs = ctxs;
+                }
+                ctxs![ctx.atomId] = ctx;
+            }
+        } else {
+            let bobx = ctx.$bobxCtx;
+            if (bobx === undefined) {
+                bobx = Object.create(null) as IBobXInCtx;
+                bobx.ctxId = allocId();
+                ctx.$bobxCtx = bobx;
+            }
+            if (bobx[this.atomId] !== undefined)
+                return;
+            bobx[this.atomId] = this;
+            if (this.ctxs === undefined) {
+                this.ctxs = Object.create(null);
+            }
+            this.ctxs![bobx.ctxId] = ctx;
         }
-        if (bobx[this.atomId] !== undefined)
-            return;
-        bobx[this.atomId] = this;
-        if (this.ctxs === undefined) {
-            this.ctxs = Object.create(null);
-        }
-        this.ctxs![bobx.ctxId] = ctx;
     }
 
     invalidate() {
@@ -131,8 +158,12 @@ class ObservableValue<T> implements IObservableValue<T>, IAtom {
         this.ctxs = undefined;
         for (let ctxId in ctxs) {
             const ctx = ctxs[ctxId];
-            delete ctx.$bobxCtx![this.atomId];
-            b.invalidate(ctx);
+            if (isIBobxComputed(ctx)) {
+                ctx.invalidateBy(this.atomId);
+            } else {
+                delete ctx.$bobxCtx![this.atomId];
+                b.invalidate(ctx);
+            }
         }
     }
 
@@ -867,22 +898,26 @@ const refStructDecorator = createDecoratorForEnhancer(refStructEnhancer);
 
 const LazyClass = {};
 
-function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
-    return function classPropertyDecorator(target: any, propName: string, _descriptor: PropertyDescriptor) {
-        // target is actually prototype not instance
-        if (!("$bobx" in target)) {
-            Object.defineProperty(target, "$bobx", {
-                enumerable: false,
-                writable: true,
-                configurable: true,
-                value: LazyClass
-            });
-            if (!("toJSON" in target)) {
-                target.toJSON = function (this: IAtom) {
-                    return this.$bobx;
-                }
+function initObservableClassPrototype(target: any) {
+    // target is actually prototype not instance
+    if (!("$bobx" in target)) {
+        Object.defineProperty(target, "$bobx", {
+            enumerable: false,
+            writable: true,
+            configurable: true,
+            value: LazyClass
+        });
+        if (!("toJSON" in target)) {
+            target.toJSON = function (this: IAtom) {
+                return this.$bobx;
             }
         }
+    }
+}
+
+function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
+    return function classPropertyDecorator(target: any, propName: string, _descriptor: PropertyDescriptor) {
+        initObservableClassPrototype(target);
         return {
             configurable: true,
             enumerable: false,
@@ -984,6 +1019,210 @@ observable.shallow = shallowDecorator;
 observable.struct = deepStructDecorator;
 observable.deep.struct = deepStructDecorator;
 observable.ref.struct = refStructDecorator;
+
+let bobxRootCtx: b.IBobrilCacheNode | undefined = undefined;
+
+b.addRoot(root => {
+    bobxRootCtx = root.n;
+    return undefined;
+});
+
+let updateNextFrameList: IBobxComputed[] = [];
+
+export let maxIterations = 100;
+
+const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
+    let iteration = 0;
+    while (iteration++ < maxIterations) {
+        let list = updateNextFrameList;
+        if (list.length == 0) break;
+        updateNextFrameList = [];
+        for (let i = 0; i < list.length; i++) {
+            list[i].update();
+        }
+    }
+    if (iteration >= maxIterations) {
+        throw new Error("Computed values did not stabilize after " + maxIterations + " iterations");
+    }
+    previousReallyBeforeFrame();
+});
+type IComparator<T> = (o: T, n: T) => boolean;
+
+const enum ComputedState {
+    First,
+    NeedRecheck,
+    Updating,
+    Updated
+}
+
+class Computed implements IBobxComputed {
+    fn: Function;
+    that: any;
+    atomId: string;
+    $bobx: null;
+    value: any;
+    exception: any;
+    state: ComputedState;
+
+    comparator: IComparator<any>;
+
+    usedBy: { [atomId: string]: IBobxComputed } | undefined;
+    ctxs: { [ctxId: string]: IBobXBobrilCtx } | undefined;
+
+    using: { [atomId: string]: IAtom } | undefined;
+
+    markUsing(atomId: string, atom: IAtom): boolean {
+        let using = this.using;
+        if (using === undefined) {
+            using = Object.create(null);
+            using![atomId] = atom;
+            this.using = using;
+            return true;
+        }
+        if (using![atomId] !== undefined)
+            return false;
+        using[atomId] = atom;
+        return true;
+    }
+    invalidateBy(atomId: string): void {
+        let using = this.using;
+        if (using === undefined)
+            return;
+        if (using[atomId] !== undefined) {
+            delete using[atomId];
+            if (this.state === ComputedState.Updating) {
+                throw new Error("Modifying inputs during updating computed");
+            }
+            if (this.state === ComputedState.Updated) {
+                this.state = ComputedState.NeedRecheck;
+                const myAtomId = this.atomId;
+                let usedBy = this.usedBy;
+                if (usedBy !== undefined) {
+                    this.usedBy = undefined;
+                    for (let atomId in usedBy) {
+                        const comp = usedBy[atomId];
+                        comp.invalidateBy(myAtomId);
+                    }
+                }
+                if (this.ctxs !== undefined) {
+                    updateNextFrameList.push(this);
+                    b.invalidate(bobxRootCtx);
+                }
+            }
+        }
+    }
+
+    constructor(fn: Function, that: any) {
+        this.atomId = allocId();
+        this.$bobx = null;
+        this.fn = fn;
+        this.that = that;
+        this.ctxs = undefined;
+        this.value = undefined;
+        this.state = ComputedState.First;
+        this.exception = undefined;
+        this.comparator = equalsIncludingNaN;
+        this.using = undefined;
+        this.usedBy = undefined;
+    }
+
+    markUsage() {
+        const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+        if (ctx === undefined) // outside of render => nothing to mark
+            return;
+        if (isIBobxComputed(ctx)) {
+            if (ctx.markUsing(this.atomId, this)) {
+                let ctxs = this.usedBy;
+                if (ctxs === undefined) {
+                    ctxs = Object.create(null);
+                    this.usedBy = ctxs;
+                }
+                ctxs![ctx.atomId] = ctx;
+            }
+        } else {
+            let bobx = ctx.$bobxCtx;
+            if (bobx === undefined) {
+                bobx = Object.create(null) as IBobXInCtx;
+                bobx.ctxId = allocId();
+                ctx.$bobxCtx = bobx;
+            }
+            if (bobx[this.atomId] !== undefined)
+                return;
+            bobx[this.atomId] = this;
+            if (this.ctxs === undefined) {
+                this.ctxs = Object.create(null);
+            }
+            this.ctxs![bobx.ctxId] = ctx;
+        }
+    }
+
+    invalidate() {
+        const myAtomId = this.atomId;
+        const ctxs = this.ctxs;
+        if (ctxs === undefined)
+            return;
+        this.ctxs = undefined;
+        for (let ctxId in ctxs) {
+            const ctx = ctxs[ctxId];
+            delete ctx.$bobxCtx![myAtomId];
+            b.invalidate(ctx);
+        }
+    }
+
+    update() {
+        let backupCurrentCtx = b.getCurrentCtx();
+        b.setCurrentCtx(this as any);
+        let isFirst = this.state === ComputedState.First;
+        this.state = ComputedState.Updating;
+        try {
+            let newResult = this.fn.call(this.that);
+            if (isFirst || this.exception !== undefined || !this.comparator(this.value, newResult)) {
+                this.exception = undefined;
+                this.value = newResult;
+            } else {
+                isFirst = true;
+            }
+        }
+        catch (err) {
+            this.exception = err;
+            this.value = undefined;
+        }
+        if (!isFirst)
+            this.invalidate();
+        this.state = ComputedState.Updated;
+        b.setCurrentCtx(backupCurrentCtx);
+    }
+    run() {
+        if (this.state === ComputedState.Updating) {
+            throw new Error("Recursively calling computed value");
+        }
+        this.markUsage();
+        if (this.state !== ComputedState.Updated) {
+            this.update();
+        }
+        if (this.exception !== undefined)
+            throw this.exception;
+        return this.value;
+    }
+}
+
+export function computed(target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any> {
+    initObservableClassPrototype(target);
+    const fn = descriptor.value;
+    return {
+        configurable: true,
+        enumerable: false,
+        value: function (this: IAtom) {
+            let val: Computed | undefined = this.$bobx[propName];
+            if (val === undefined) {
+                let behind = asObservableClass(this);
+                val = new Computed(fn, this);
+                (behind as any)[propName] = val;
+            }
+            return val.run();
+        },
+    };
+}
 
 export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
