@@ -472,6 +472,9 @@ class ObservableArray<T> extends StubArray {
     push(...items: T[]): number {
         const values = this.$bobx;
         if (items.length == 0) return values.length;
+        for (let i = 0; i < items.length; i++) {
+            items[i] = this.$enhancer(items[i], undefined);
+        }
         values.push.apply(values, items);
         this.$atom.invalidate();
         reserveArrayBuffer(values.length);

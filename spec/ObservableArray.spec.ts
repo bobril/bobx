@@ -1,4 +1,4 @@
-import { observable, observableProp } from "../index";
+import { observable, observableProp, isObservable } from "../index";
 
 describe("ObservableArray", () => {
     it("construct", () => {
@@ -32,5 +32,12 @@ describe("ObservableArray", () => {
     it("toJSON", () => {
         let v = observable([42]);
         expect(JSON.stringify(v)).toBe(JSON.stringify([42]));
+    });
+
+    it("enhancing push", () => {
+        let a = observable([] as Array<{ b: number }>);
+        a.push({ b: 1 }, { b: 2 });
+        expect(isObservable(a[1])).toBe(true);
+        expect(a[1].b).toBe(2);
     });
 });

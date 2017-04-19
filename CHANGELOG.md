@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.8.1
+--
+
+Fix for ObservableArray push does not enhancing pushed values.
+
 0.8.0
 --
 
