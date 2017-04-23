@@ -49,6 +49,7 @@ interface IBobxComputed extends IAtom {
     markUsing(atomId: string, atom: IAtom): boolean;
     invalidateBy(atomId: string): void;
     update(): void;
+    updateIfNeeded(): void;
 }
 
 type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
@@ -1041,7 +1042,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
         if (list.length == 0) break;
         updateNextFrameList = [];
         for (let i = 0; i < list.length; i++) {
-            list[i].update();
+            list[i].updateIfNeeded();
         }
     }
     if (iteration >= maxIterations) {
@@ -1049,7 +1050,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     }
     previousReallyBeforeFrame();
 });
-type IComparator<T> = (o: T, n: T) => boolean;
+type IEqualsComparer<T> = (o: T, n: T) => boolean;
 
 const enum ComputedState {
     First,
@@ -1067,7 +1068,7 @@ class Computed implements IBobxComputed {
     exception: any;
     state: ComputedState;
 
-    comparator: IComparator<any>;
+    comparator: IEqualsComparer<any>;
 
     usedBy: { [atomId: string]: IBobxComputed } | undefined;
     ctxs: { [ctxId: string]: IBobXBobrilCtx } | undefined;
@@ -1115,7 +1116,7 @@ class Computed implements IBobxComputed {
         }
     }
 
-    constructor(fn: Function, that: any) {
+    constructor(fn: Function, that: any, comparator: IEqualsComparer<any>) {
         this.atomId = allocId();
         this.$bobx = null;
         this.fn = fn;
@@ -1124,7 +1125,7 @@ class Computed implements IBobxComputed {
         this.value = undefined;
         this.state = ComputedState.First;
         this.exception = undefined;
-        this.comparator = equalsIncludingNaN;
+        this.comparator = comparator;
         this.using = undefined;
         this.usedBy = undefined;
     }
@@ -1172,6 +1173,10 @@ class Computed implements IBobxComputed {
         }
     }
 
+    updateIfNeeded() {
+        if (this.state === ComputedState.NeedRecheck)
+            this.update();
+    }
     update() {
         let backupCurrentCtx = b.getCurrentCtx();
         b.setCurrentCtx(this as any);
@@ -1209,23 +1214,52 @@ class Computed implements IBobxComputed {
     }
 }
 
-export function computed(target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any> {
-    initObservableClassPrototype(target);
-    const fn = descriptor.value;
-    return {
-        configurable: true,
-        enumerable: false,
-        value: function (this: IAtom) {
-            let val: Computed | undefined = this.$bobx[propName];
-            if (val === undefined) {
-                let behind = asObservableClass(this);
-                val = new Computed(fn, this);
-                (behind as any)[propName] = val;
-            }
-            return val.run();
-        },
+interface IComputedFactory {
+    (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;
+    struct: (target: any, propName: string, descriptor: PropertyDescriptor) => TypedPropertyDescriptor<any>;
+    equals<T>(comparator: IEqualsComparer<T>): (target: any, propName: string, descriptor: TypedPropertyDescriptor<any>) => TypedPropertyDescriptor<any>;
+}
+
+function buildComputed<T>(comparator: IEqualsComparer<T>) {
+    return (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any> => {
+        initObservableClassPrototype(target);
+        if (descriptor.get != undefined) {
+            const fn = descriptor.get;
+            return {
+                configurable: true,
+                enumerable: false,
+                get: function (this: IAtom) {
+                    let val: Computed | undefined = this.$bobx[propName];
+                    if (val === undefined) {
+                        let behind = asObservableClass(this);
+                        val = new Computed(fn, this, comparator);
+                        (behind as any)[propName] = val;
+                    }
+                    return val.run();
+                },
+                set: descriptor.set
+            };
+        } else {
+            const fn = descriptor.value;
+            return {
+                configurable: true,
+                enumerable: false,
+                value: function (this: IAtom) {
+                    let val: Computed | undefined = this.$bobx[propName];
+                    if (val === undefined) {
+                        let behind = asObservableClass(this);
+                        val = new Computed(fn, this, comparator);
+                        (behind as any)[propName] = val;
+                    }
+                    return val.run();
+                }
+            };
+        }
     };
 }
+export var computed: IComputedFactory = buildComputed(equalsIncludingNaN) as any;
+computed.struct = buildComputed(deepEqual);
+computed.equals = buildComputed;
 
 export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;

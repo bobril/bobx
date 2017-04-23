@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.9.0
+--
+
+Added @computed.struct, @computed.equals(comparer). Computed property can now be also getter and not just function.
+
 0.8.1
 --
 
