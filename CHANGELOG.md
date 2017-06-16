@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.10.0
+--
+
+Exported some functions and classes from implementation.
+
 0.9.0
 --
 

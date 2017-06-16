@@ -40,7 +40,7 @@ interface IBobXBobrilCtx extends b.IBobrilCtx {
 interface IObservable {
     $bobx: any;
 }
-interface IAtom extends IObservable {
+export interface IAtom extends IObservable {
     atomId: string;
 }
 
@@ -73,7 +73,7 @@ function isIBobxComputed(v: IBobxCallerCtx): v is IBobxComputed {
     return (v as IBobxComputed).$bobx === null;
 }
 
-class ObservableValue<T> implements IObservableValue<T>, IAtom {
+export class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     constructor(value: T, enhancer: IEnhancer<T>) {
         this.atomId = allocId();
@@ -218,7 +218,7 @@ function asObservableObject(target: Object): ObservableObjectBehind {
     return behind;
 }
 
-function asObservableClass(target: Object): ObservableObjectBehind {
+export function asObservableClass(target: Object): ObservableObjectBehind {
     let behind = (target as IAtom).$bobx;
     if (behind !== LazyClass)
         return behind;
@@ -370,7 +370,7 @@ class StubArray {
 }
 StubArray.prototype = [];
 
-class ObservableArray<T> extends StubArray {
+export class ObservableArray<T> extends StubArray {
     $bobx: Array<T>;
     $enhancer: IEnhancer<T>;
     $atom: ObservableValue<any>;
@@ -902,7 +902,7 @@ const refStructDecorator = createDecoratorForEnhancer(refStructEnhancer);
 
 const LazyClass = {};
 
-function initObservableClassPrototype(target: any) {
+export function initObservableClassPrototype(target: any) {
     // target is actually prototype not instance
     if (!("$bobx" in target)) {
         Object.defineProperty(target, "$bobx", {
