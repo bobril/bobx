@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.11.0
+--
+
+Transitively export what is needed to be exported. Now compilable with declaration=true.
+
 0.10.0
 --
 

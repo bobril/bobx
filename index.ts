@@ -28,23 +28,23 @@ function makeNonEnumerable(object: any, propNames: string[]) {
     }
 }
 
-interface IBobXInCtx {
+export interface IBobXInCtx {
     ctxId: string;
     [atomId: string]: IAtom | string;
 }
 
-interface IBobXBobrilCtx extends b.IBobrilCtx {
+export interface IBobXBobrilCtx extends b.IBobrilCtx {
     $bobxCtx?: IBobXInCtx | undefined;
 }
 
-interface IObservable {
+export interface IObservable {
     $bobx: any;
 }
 export interface IAtom extends IObservable {
     atomId: string;
 }
 
-interface IBobxComputed extends IAtom {
+export interface IBobxComputed extends IAtom {
     $bobx: null;
     markUsing(atomId: string, atom: IAtom): boolean;
     invalidateBy(atomId: string): void;
@@ -52,9 +52,9 @@ interface IBobxComputed extends IAtom {
     updateIfNeeded(): void;
 }
 
-type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
+export type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
 
-type IEnhancer<T> = (newValue: T, curValue: T | undefined) => T;
+export type IEnhancer<T> = (newValue: T, curValue: T | undefined) => T;
 
 export interface IObservableValue<T> {
     get(): T;
@@ -326,7 +326,7 @@ function generateObservablePropConfig(propName: string) {
     };
 }
 
-type ObservableObjectBehind = { [prop: string]: IObservableValue<any> };
+export type ObservableObjectBehind = { [prop: string]: IObservableValue<any> };
 
 function defineObservableProperty(
     target: Object,
@@ -366,7 +366,7 @@ export interface IObservableArray<T> extends Array<T> {
 let observableArrayPropCount = 0;
 
 // Typescript workaround to make sure ObservableArray extends Array
-class StubArray {
+export class StubArray {
 }
 StubArray.prototype = [];
 
@@ -1050,7 +1050,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     }
     previousReallyBeforeFrame();
 });
-type IEqualsComparer<T> = (o: T, n: T) => boolean;
+export type IEqualsComparer<T> = (o: T, n: T) => boolean;
 
 const enum ComputedState {
     First,
@@ -1214,7 +1214,7 @@ class Computed implements IBobxComputed {
     }
 }
 
-interface IComputedFactory {
+export interface IComputedFactory {
     (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;
     struct: (target: any, propName: string, descriptor: PropertyDescriptor) => TypedPropertyDescriptor<any>;
     equals<T>(comparator: IEqualsComparer<T>): (target: any, propName: string, descriptor: TypedPropertyDescriptor<any>) => TypedPropertyDescriptor<any>;

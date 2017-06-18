@@ -1,4 +1,10 @@
 node_modules/
+/spec/*.d.ts
+/spec/*.js
+/example/*.d.ts
+/example/*.js
+example.d.ts
+example.js
 
 # =========================
 # Operating System Files
