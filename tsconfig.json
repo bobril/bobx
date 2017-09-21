@@ -3,7 +3,7 @@
         "target": "es5",
         "module": "commonjs",
         "moduleResolution": "node",
-        "declaration": true,
+        "declaration": false,
         "lib": [
             "es5",
             "dom",
@@ -22,7 +22,8 @@
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
         "strictNullChecks": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "types": []
     },
     "include": [
         "**/*"
