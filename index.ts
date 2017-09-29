@@ -28,9 +28,12 @@ function makeNonEnumerable(object: any, propNames: string[]) {
     }
 }
 
-export interface IBobXInCtx {
-    ctxId: string;
-    [atomId: string]: IAtom | string;
+export type AtomId = string;
+
+export type CtxId = string;
+
+export interface IBobXInCtx extends IMap<AtomId, IAtom> {
+    ctxId?: CtxId;
 }
 
 export interface IBobXBobrilCtx extends b.IBobrilCtx {
@@ -40,14 +43,15 @@ export interface IBobXBobrilCtx extends b.IBobrilCtx {
 export interface IObservable {
     $bobx: any;
 }
+
 export interface IAtom extends IObservable {
-    atomId: string;
+    atomId: AtomId;
 }
 
 export interface IBobxComputed extends IAtom {
     $bobx: null;
-    markUsing(atomId: string, atom: IAtom): boolean;
-    invalidateBy(atomId: string): void;
+    markUsing(atomId: AtomId, atom: IAtom): boolean;
+    invalidateBy(atomId: AtomId): void;
     update(): void;
     updateIfNeeded(): void;
 }
@@ -65,7 +69,7 @@ export interface IObservableValue<T> {
 
 let lastId = 0;
 
-function allocId() {
+function allocId(): string {
     return "" + ++lastId;
 }
 
@@ -118,9 +122,9 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     _prop: b.IProp<T> | undefined;
 
-    atomId: string;
+    atomId: AtomId;
 
-    ctxs: { [ctxId: string]: IBobxCallerCtx } | undefined;
+    ctxs: Map<CtxId, IBobxCallerCtx> | undefined;
 
     markUsage() {
         const ctx = b.getCurrentCtx() as IBobxCallerCtx;
@@ -130,25 +134,25 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
             if (ctx.markUsing(this.atomId, this)) {
                 let ctxs = this.ctxs;
                 if (ctxs === undefined) {
-                    ctxs = Object.create(null);
+                    ctxs = new Map();
                     this.ctxs = ctxs;
                 }
-                ctxs![ctx.atomId] = ctx;
+                ctxs.set(ctx.atomId, ctx);
             }
         } else {
             let bobx = ctx.$bobxCtx;
             if (bobx === undefined) {
-                bobx = Object.create(null) as IBobXInCtx;
+                bobx = new Map() as IBobXInCtx;
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx[this.atomId] !== undefined)
+            if (bobx.has(this.atomId))
                 return;
-            bobx[this.atomId] = this;
+            bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
-                this.ctxs = Object.create(null);
+                this.ctxs = new Map();
             }
-            this.ctxs![bobx.ctxId] = ctx;
+            this.ctxs.set(bobx.ctxId!, ctx);
         }
     }
 
@@ -157,15 +161,14 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
         if (ctxs === undefined)
             return;
         this.ctxs = undefined;
-        for (let ctxId in ctxs) {
-            const ctx = ctxs[ctxId];
+        ctxs.forEach(function (this: ObservableValue<T>, ctx) {
             if (isIBobxComputed(ctx)) {
                 ctx.invalidateBy(this.atomId);
             } else {
-                delete ctx.$bobxCtx![this.atomId];
+                ctx.$bobxCtx!.delete(this.atomId);
                 b.invalidate(ctx);
             }
-        }
+        }, this);
     }
 
     toJSON() {
@@ -178,12 +181,14 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
-            const ctxId = bobx.ctxId;
-            ctx.$bobxCtx = (phase === b.RenderPhase.Destroy) ? undefined : { ctxId };
-            for (let atomId in bobx) {
-                if (atomId === "ctxId")
-                    continue;
-                delete (bobx[atomId] as ObservableValue<any>).ctxs![ctxId];
+            const ctxId = bobx.ctxId!;
+            bobx.forEach((value) => {
+                (value as ObservableValue<any>).ctxs!.delete(ctxId);
+            });
+            if (phase === b.RenderPhase.Destroy) {
+                ctx.$bobxCtx = undefined;
+            } else {
+                bobx.clear();
             }
         }
     }
@@ -692,10 +697,10 @@ export function isObservableMap(thing: any): thing is IObservableMap<any> {
 export interface IMap<K, V> {
     clear(): void;
     delete(key: K): boolean;
-    forEach(callbackfn: (value: V, index: K, map: IMap<K, V>) => void, thisArg?: any): void;
+    forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
     get(key: K): V | undefined;
     has(key: K): boolean;
-    set(key: K, value?: V): this;
+    set(key: K, value: V): this;
     readonly size: number;
 }
 
@@ -723,12 +728,12 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     $bobx: 0;
     $enhancer: IEnhancer<TValue>;
     $atom: ObservableValue<any>;
-    $content: IKeyValueMap<ObservableValue<TValue>>;
+    $content: IMap<string, ObservableValue<TValue>>;
 
     constructor(init: IObservableMapInitialValues<TValue>, enhancer: IEnhancer<TValue>) {
         this.$enhancer = enhancer;
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
-        this.$content = Object.create(null);
+        this.$content = new Map();
         this._size = 0;
         if (Array.isArray(init))
             init.forEach(([key, value]) => this.set(key, value));
@@ -741,7 +746,7 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     }
 
     has(key: string): boolean {
-        let cont = this.$content[key];
+        let cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.markUsage();
             return true;
@@ -751,7 +756,7 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     }
 
     get(key: string): TValue | undefined {
-        let cont = this.$content[key];
+        let cont = this.$content.get(key);
         if (cont !== undefined) {
             return cont.get();
         }
@@ -760,19 +765,19 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     }
 
     set(key: string, value: TValue): this {
-        let cont = this.$content[key];
+        let cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.set(value);
             return this;
         }
         this.$atom.invalidate();
-        this.$content[key] = new ObservableValue(value, this.$enhancer);
+        this.$content.set(key, new ObservableValue(value, this.$enhancer));
         this._size++;
         return this;
     }
 
     prop(key: string): b.IProp<TValue> {
-        let cont = this.$content[key];
+        let cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.markUsage();
             return cont.prop();
@@ -790,20 +795,18 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
     clear(): void {
         if (this._size == 0) return;
         let c = this.$content;
-        for (let k in c) {
-            c[k].invalidate();
-        }
+        c.forEach((v) => v.invalidate());
         this.$atom.invalidate();
         this._size = 0;
-        this.$content = Object.create(null);
+        this.$content.clear();
     }
 
     delete(key: string): boolean {
         this.$atom.invalidate();
-        let cont = this.$content[key];
+        let cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.invalidate();
-            delete this.$content[key];
+            this.$content.delete(key);
             this._size--;
             return true;
         }
@@ -812,14 +815,17 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
 
     forEach(callbackfn: (value: TValue, index: string, map: IMap<string, TValue>) => void, thisArg?: any): void {
         this.$atom.markUsage();
-        let c = this.$content;
-        for (let k in c) {
-            callbackfn.call(thisArg, c[k].get(), k, this);
-        }
+        this.$content.forEach(function (this: ObservableMap<TValue>, value: ObservableValue<TValue>, key: string) {
+            callbackfn.call(thisArg, value.get(), key, this);
+        }, this);
     }
 
     toJSON() {
-        return this.$content;
+        var res = Object.create(null);
+        this.$content.forEach((v, k) => {
+            res[k] = v;
+        })
+        return res;
     }
 }
 
@@ -1062,7 +1068,7 @@ const enum ComputedState {
 class Computed implements IBobxComputed {
     fn: Function;
     that: any;
-    atomId: string;
+    atomId: AtomId;
     $bobx: null;
     value: any;
     exception: any;
@@ -1070,30 +1076,29 @@ class Computed implements IBobxComputed {
 
     comparator: IEqualsComparer<any>;
 
-    usedBy: { [atomId: string]: IBobxComputed } | undefined;
-    ctxs: { [ctxId: string]: IBobXBobrilCtx } | undefined;
+    usedBy: Map<AtomId, IBobxComputed> | undefined;
+    ctxs: Map<CtxId, IBobXBobrilCtx> | undefined;
 
-    using: { [atomId: string]: IAtom } | undefined;
+    using: Map<AtomId, IAtom> | undefined;
 
-    markUsing(atomId: string, atom: IAtom): boolean {
+    markUsing(atomId: AtomId, atom: IAtom): boolean {
         let using = this.using;
         if (using === undefined) {
-            using = Object.create(null);
-            using![atomId] = atom;
+            using = new Map();
+            using.set(atomId, atom);
             this.using = using;
             return true;
         }
-        if (using![atomId] !== undefined)
+        if (using.has(atomId))
             return false;
-        using[atomId] = atom;
+        using.set(atomId, atom);
         return true;
     }
-    invalidateBy(atomId: string): void {
+    invalidateBy(atomId: AtomId): void {
         let using = this.using;
         if (using === undefined)
             return;
-        if (using[atomId] !== undefined) {
-            delete using[atomId];
+        if (using.delete(atomId)) {
             if (this.state === ComputedState.Updating) {
                 throw new Error("Modifying inputs during updating computed");
             }
@@ -1103,10 +1108,9 @@ class Computed implements IBobxComputed {
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     this.usedBy = undefined;
-                    for (let atomId in usedBy) {
-                        const comp = usedBy[atomId];
+                    usedBy.forEach((comp) => {
                         comp.invalidateBy(myAtomId);
-                    }
+                    });
                 }
                 if (this.ctxs !== undefined) {
                     updateNextFrameList.push(this);
@@ -1138,39 +1142,37 @@ class Computed implements IBobxComputed {
             if (ctx.markUsing(this.atomId, this)) {
                 let ctxs = this.usedBy;
                 if (ctxs === undefined) {
-                    ctxs = Object.create(null);
+                    ctxs = new Map();
                     this.usedBy = ctxs;
                 }
-                ctxs![ctx.atomId] = ctx;
+                ctxs.set(ctx.atomId, ctx);
             }
         } else {
             let bobx = ctx.$bobxCtx;
             if (bobx === undefined) {
-                bobx = Object.create(null) as IBobXInCtx;
+                bobx = new Map();
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx[this.atomId] !== undefined)
+            if (bobx.has(this.atomId))
                 return;
-            bobx[this.atomId] = this;
+            bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
-                this.ctxs = Object.create(null);
+                this.ctxs = new Map();
             }
-            this.ctxs![bobx.ctxId] = ctx;
+            this.ctxs!.set(bobx.ctxId!, ctx);
         }
     }
 
     invalidate() {
-        const myAtomId = this.atomId;
         const ctxs = this.ctxs;
         if (ctxs === undefined)
             return;
-        this.ctxs = undefined;
-        for (let ctxId in ctxs) {
-            const ctx = ctxs[ctxId];
-            delete ctx.$bobxCtx![myAtomId];
+        ctxs.forEach(function (this: Computed, ctx) {
+            ctx.$bobxCtx!.delete(this.atomId);
             b.invalidate(ctx);
-        }
+        }, this);
+        ctxs.clear();
     }
 
     updateIfNeeded() {
