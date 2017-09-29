@@ -28,9 +28,9 @@ function makeNonEnumerable(object: any, propNames: string[]) {
     }
 }
 
-export type AtomId = string;
+export type AtomId = number;
 
-export type CtxId = string;
+export type CtxId = number;
 
 export interface IBobXInCtx extends IMap<AtomId, IAtom> {
     ctxId?: CtxId;
@@ -69,8 +69,8 @@ export interface IObservableValue<T> {
 
 let lastId = 0;
 
-function allocId(): string {
-    return "" + ++lastId;
+function allocId(): AtomId & CtxId {
+    return ++lastId;
 }
 
 function isIBobxComputed(v: IBobxCallerCtx): v is IBobxComputed {
