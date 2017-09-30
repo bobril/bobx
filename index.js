@@ -37,12 +37,12 @@ function makeNonEnumerable(object, propNames) {
 }
 var lastId = 0;
 function allocId() {
-    return "" + ++lastId;
+    return ++lastId;
 }
 function isIBobxComputed(v) {
     return v.$bobx === null;
 }
-var ObservableValue = (function () {
+var ObservableValue = /** @class */ (function () {
     function ObservableValue(value, enhancer) {
         this.atomId = allocId();
         this.ctxs = undefined;
@@ -85,43 +85,42 @@ var ObservableValue = (function () {
             if (ctx.markUsing(this.atomId, this)) {
                 var ctxs = this.ctxs;
                 if (ctxs === undefined) {
-                    ctxs = Object.create(null);
+                    ctxs = new Map();
                     this.ctxs = ctxs;
                 }
-                ctxs[ctx.atomId] = ctx;
+                ctxs.set(ctx.atomId, ctx);
             }
         }
         else {
             var bobx = ctx.$bobxCtx;
             if (bobx === undefined) {
-                bobx = Object.create(null);
+                bobx = new Map();
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx[this.atomId] !== undefined)
+            if (bobx.has(this.atomId))
                 return;
-            bobx[this.atomId] = this;
+            bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
-                this.ctxs = Object.create(null);
+                this.ctxs = new Map();
             }
-            this.ctxs[bobx.ctxId] = ctx;
+            this.ctxs.set(bobx.ctxId, ctx);
         }
     };
     ObservableValue.prototype.invalidate = function () {
         var ctxs = this.ctxs;
         if (ctxs === undefined)
             return;
-        this.ctxs = undefined;
-        for (var ctxId in ctxs) {
-            var ctx = ctxs[ctxId];
+        ctxs.forEach(function (ctx) {
             if (isIBobxComputed(ctx)) {
                 ctx.invalidateBy(this.atomId);
             }
             else {
-                delete ctx.$bobxCtx[this.atomId];
+                ctx.$bobxCtx.delete(this.atomId);
                 b.invalidate(ctx);
             }
-        }
+        }, this);
+        ctxs.clear();
     };
     ObservableValue.prototype.toJSON = function () {
         return this.get();
@@ -134,12 +133,14 @@ var previousBeforeRender = b.setBeforeRender(function (node, phase) {
     if (phase === 3 /* Destroy */ || phase === 1 /* Update */ || phase === 2 /* LocalUpdate */) {
         var bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
-            var ctxId = bobx.ctxId;
-            ctx.$bobxCtx = (phase === 3 /* Destroy */) ? undefined : { ctxId: ctxId };
-            for (var atomId in bobx) {
-                if (atomId === "ctxId")
-                    continue;
-                delete bobx[atomId].ctxs[ctxId];
+            bobx.forEach(function (value) {
+                value.ctxs.delete(this.ctxId);
+            }, bobx);
+            if (phase === 3 /* Destroy */) {
+                ctx.$bobxCtx = undefined;
+            }
+            else {
+                bobx.clear();
             }
         }
     }
@@ -154,6 +155,9 @@ function isObservable(value) {
 exports.isObservable = isObservable;
 function isObject(value) {
     return value !== null && typeof value === "object";
+}
+function isES6Map(value) {
+    return value instanceof Map;
 }
 function isPlainObject(value) {
     if (value === null || typeof value !== "object")
@@ -319,14 +323,14 @@ var safariPrototypeSetterInheritanceBug = (function () {
  */
 var observableArrayPropCount = 0;
 // Typescript workaround to make sure ObservableArray extends Array
-var StubArray = (function () {
+var StubArray = /** @class */ (function () {
     function StubArray() {
     }
     return StubArray;
 }());
 exports.StubArray = StubArray;
 StubArray.prototype = [];
-var ObservableArray = (function (_super) {
+var ObservableArray = /** @class */ (function (_super) {
     __extends(ObservableArray, _super);
     function ObservableArray(initialValues, enhancer) {
         var _this = _super.call(this) || this;
@@ -625,23 +629,28 @@ function isObservableMap(thing) {
     return isObject(thing) && thing.$bobx === ObservableMapMarker;
 }
 exports.isObservableMap = isObservableMap;
-var ObservableMap = (function () {
+var ObservableMap = /** @class */ (function () {
     function ObservableMap(init, enhancer) {
         var _this = this;
         this.$enhancer = enhancer;
         this.$atom = new ObservableValue(null, referenceEnhancer);
-        this.$content = Object.create(null);
+        this.$content = new Map();
         this._size = 0;
         if (Array.isArray(init))
             init.forEach(function (_a) {
                 var key = _a[0], value = _a[1];
                 return _this.set(key, value);
             });
-        else if (isObservableMap(init)) {
-            init.forEach(function (value, key) { return _this.set(key, value); });
+        else if (isObservableMap(init) || isES6Map(init)) {
+            init.forEach(function (value, key) { this.set(key, value); }, this);
         }
-        else if (isPlainObject(init))
-            Object.keys(init).forEach(function (key) { return _this.set(key, init[key]); });
+        else if (isPlainObject(init)) {
+            var keys = Object.keys(init);
+            for (var i = 0; i < keys.length; i++) {
+                var key = keys[i];
+                this.set(key, init[key]);
+            }
+        }
         else if (init != null)
             throw new Error("Cannot initialize map from " + init);
     }
@@ -654,7 +663,7 @@ var ObservableMap = (function () {
         configurable: true
     });
     ObservableMap.prototype.has = function (key) {
-        var cont = this.$content[key];
+        var cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.markUsage();
             return true;
@@ -663,7 +672,7 @@ var ObservableMap = (function () {
         return false;
     };
     ObservableMap.prototype.get = function (key) {
-        var cont = this.$content[key];
+        var cont = this.$content.get(key);
         if (cont !== undefined) {
             return cont.get();
         }
@@ -671,19 +680,19 @@ var ObservableMap = (function () {
         return undefined;
     };
     ObservableMap.prototype.set = function (key, value) {
-        var cont = this.$content[key];
+        var cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.set(value);
             return this;
         }
         this.$atom.invalidate();
-        this.$content[key] = new ObservableValue(value, this.$enhancer);
+        this.$content.set(key, new ObservableValue(value, this.$enhancer));
         this._size++;
         return this;
     };
     ObservableMap.prototype.prop = function (key) {
         var _this = this;
-        var cont = this.$content[key];
+        var cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.markUsage();
             return cont.prop();
@@ -701,19 +710,17 @@ var ObservableMap = (function () {
         if (this._size == 0)
             return;
         var c = this.$content;
-        for (var k in c) {
-            c[k].invalidate();
-        }
+        c.forEach(function (v) { return v.invalidate(); });
         this.$atom.invalidate();
         this._size = 0;
-        this.$content = Object.create(null);
+        this.$content.clear();
     };
     ObservableMap.prototype.delete = function (key) {
         this.$atom.invalidate();
-        var cont = this.$content[key];
+        var cont = this.$content.get(key);
         if (cont !== undefined) {
             cont.invalidate();
-            delete this.$content[key];
+            this.$content.delete(key);
             this._size--;
             return true;
         }
@@ -721,13 +728,16 @@ var ObservableMap = (function () {
     };
     ObservableMap.prototype.forEach = function (callbackfn, thisArg) {
         this.$atom.markUsage();
-        var c = this.$content;
-        for (var k in c) {
-            callbackfn.call(thisArg, c[k].get(), k, this);
-        }
+        this.$content.forEach(function (value, key) {
+            callbackfn.call(thisArg, value.get(), key, this);
+        }, this);
     };
     ObservableMap.prototype.toJSON = function () {
-        return this.$content;
+        var res = Object.create(null);
+        this.$content.forEach(function (v, k) {
+            this[k] = v.get();
+        }, res);
+        return res;
     };
     return ObservableMap;
 }());
@@ -735,12 +745,14 @@ addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
 function deepEnhancer(newValue, oldValue) {
     if (newValue === oldValue)
         return oldValue;
-    if (isObservable(newValue))
-        return newValue;
     if (newValue == null)
+        return newValue;
+    if (isObservable(newValue))
         return newValue;
     if (b.isArray(newValue))
         return (new ObservableArray(newValue, deepEnhancer));
+    if (isES6Map(newValue))
+        return new ObservableMap(newValue, deepEnhancer);
     if (isPlainObject(newValue)) {
         var res = Object.create(Object.getPrototypeOf(newValue));
         var behind = asObservableObject(res);
@@ -754,12 +766,14 @@ function deepEnhancer(newValue, oldValue) {
 function shallowEnhancer(newValue, oldValue) {
     if (newValue === oldValue)
         return oldValue;
-    if (isObservable(newValue))
-        return newValue;
     if (newValue == null)
+        return newValue;
+    if (isObservable(newValue))
         return newValue;
     if (b.isArray(newValue))
         return new ObservableArray(newValue, referenceEnhancer);
+    if (isES6Map(newValue))
+        return new ObservableMap(newValue, referenceEnhancer);
     if (isPlainObject(newValue)) {
         var res = Object.create(Object.getPrototypeOf(newValue));
         var behind = asObservableObject(res);
@@ -773,12 +787,14 @@ function shallowEnhancer(newValue, oldValue) {
 function deepStructEnhancer(newValue, oldValue) {
     if (deepEqual(newValue, oldValue))
         return oldValue;
+    if (newValue == null)
+        return newValue;
     if (isObservable(newValue))
         return newValue;
     if (b.isArray(newValue))
         return new ObservableArray(newValue, deepStructEnhancer);
-    //if (isES6Map(newValue))
-    //	return new ObservableMap(newValue, deepStructEnhancer, name);
+    if (isES6Map(newValue))
+        return new ObservableMap(newValue, deepStructEnhancer);
     if (isPlainObject(newValue)) {
         var res = Object.create(Object.getPrototypeOf(newValue));
         var behind = asObservableObject(res);
@@ -862,8 +878,8 @@ function createObservable(value) {
     return new ObservableValue(value, deepEnhancer);
 }
 exports.observable = createObservable;
-exports.observable.map = function (init) { return new ObservableMap(init, deepEnhancer); };
-exports.observable.shallowMap = function (init) { return new ObservableMap(init, referenceEnhancer); };
+exports.observable.map = (function (init) { return new ObservableMap(init, deepEnhancer); });
+exports.observable.shallowMap = (function (init) { return new ObservableMap(init, referenceEnhancer); });
 exports.observable.deep = deepDecorator;
 exports.observable.ref = refDecorator;
 exports.observable.shallow = shallowDecorator;
@@ -893,7 +909,7 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
     }
     previousReallyBeforeFrame();
 });
-var Computed = (function () {
+var Computed = /** @class */ (function () {
     function Computed(fn, that, comparator) {
         this.atomId = allocId();
         this.$bobx = null;
@@ -910,35 +926,32 @@ var Computed = (function () {
     Computed.prototype.markUsing = function (atomId, atom) {
         var using = this.using;
         if (using === undefined) {
-            using = Object.create(null);
-            using[atomId] = atom;
+            using = new Map();
+            using.set(atomId, atom);
             this.using = using;
             return true;
         }
-        if (using[atomId] !== undefined)
+        if (using.has(atomId))
             return false;
-        using[atomId] = atom;
+        using.set(atomId, atom);
         return true;
     };
     Computed.prototype.invalidateBy = function (atomId) {
         var using = this.using;
         if (using === undefined)
             return;
-        if (using[atomId] !== undefined) {
-            delete using[atomId];
+        if (using.delete(atomId)) {
             if (this.state === 2 /* Updating */) {
                 throw new Error("Modifying inputs during updating computed");
             }
             if (this.state === 3 /* Updated */) {
                 this.state = 1 /* NeedRecheck */;
-                var myAtomId = this.atomId;
                 var usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     this.usedBy = undefined;
-                    for (var atomId_1 in usedBy) {
-                        var comp = usedBy[atomId_1];
-                        comp.invalidateBy(myAtomId);
-                    }
+                    usedBy.forEach(function (comp) {
+                        comp.invalidateBy(this.atomId);
+                    }, this);
                 }
                 if (this.ctxs !== undefined) {
                     updateNextFrameList.push(this);
@@ -955,39 +968,37 @@ var Computed = (function () {
             if (ctx.markUsing(this.atomId, this)) {
                 var ctxs = this.usedBy;
                 if (ctxs === undefined) {
-                    ctxs = Object.create(null);
+                    ctxs = new Map();
                     this.usedBy = ctxs;
                 }
-                ctxs[ctx.atomId] = ctx;
+                ctxs.set(ctx.atomId, ctx);
             }
         }
         else {
             var bobx = ctx.$bobxCtx;
             if (bobx === undefined) {
-                bobx = Object.create(null);
+                bobx = new Map();
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx[this.atomId] !== undefined)
+            if (bobx.has(this.atomId))
                 return;
-            bobx[this.atomId] = this;
+            bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
-                this.ctxs = Object.create(null);
+                this.ctxs = new Map();
             }
-            this.ctxs[bobx.ctxId] = ctx;
+            this.ctxs.set(bobx.ctxId, ctx);
         }
     };
     Computed.prototype.invalidate = function () {
-        var myAtomId = this.atomId;
         var ctxs = this.ctxs;
         if (ctxs === undefined)
             return;
-        this.ctxs = undefined;
-        for (var ctxId in ctxs) {
-            var ctx = ctxs[ctxId];
-            delete ctx.$bobxCtx[myAtomId];
+        ctxs.forEach(function (ctx) {
+            ctx.$bobxCtx.delete(this.atomId);
             b.invalidate(ctx);
-        }
+        }, this);
+        ctxs.clear();
     };
     Computed.prototype.updateIfNeeded = function () {
         if (this.state === 1 /* NeedRecheck */)

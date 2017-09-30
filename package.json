@@ -1,6 +1,6 @@
 {
   "name": "bobx",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Mobx like library for Bobril",
   "main": "index.js",
   "types": "index.d.ts",

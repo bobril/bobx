@@ -1,6 +1,15 @@
 CHANGELOG
 ===
 
+0.12.0
+--
+
+BREAKING CHANGES:
+. Maps have 2 generic arguments instead of one. Before Key was always string, so fix is add string as type for K.
+. Needs latest bobril-build or es2015.collection in libs.
+
+Uses ES6 Map for implementation. Allow to convert ES6 Map to Observable map. 
+
 0.11.0
 --
 

@@ -6,7 +6,7 @@ describe("ObservableMap", () => {
     });
 
     it("get set has", () => {
-        let m = observable.map<number>();
+        let m = observable.map<string, number>();
         expect(m.size).toBe(0);
         m.set("a", 1);
         expect(m.has("a")).toBe(true);
@@ -26,8 +26,8 @@ describe("ObservableMap", () => {
     });
 
     it("multiple instances", () => {
-        let m1 = observable.map<string>();
-        let m2 = observable.map<string>();
+        let m1 = observable.map<string, string>();
+        let m2 = observable.map<string, string>();
         m1.set("a", "b");
         m2.set("a", "c");
         expect(m1.get("a")).toBe("b");
@@ -41,7 +41,7 @@ describe("ObservableMap", () => {
     });
 
     it("init by array", () => {
-        let m = observable.map<string>([["a", "1"], ["b", "2"]]);
+        let m = observable.map<string, string>([["a", "1"], ["b", "2"]]);
         expect(m.size).toBe(2);
         expect(m.get("a")).toBe("1");
         expect(m.get("b")).toBe("2");
@@ -57,7 +57,7 @@ describe("ObservableMap", () => {
     });
 
     it("foreach", () => {
-        let m = observable.map({ a: 2, b: 4 });
+        let m = observable.map<string, number>({ a: 2, b: 4 });
         let a: (string | number)[] = [];
         m.forEach((v, k, m2) => {
             a.push(k, v);
