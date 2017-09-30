@@ -160,7 +160,6 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
         const ctxs = this.ctxs;
         if (ctxs === undefined)
             return;
-        this.ctxs = undefined;
         ctxs.forEach(function (this: ObservableValue<T>, ctx) {
             if (isIBobxComputed(ctx)) {
                 ctx.invalidateBy(this.atomId);
@@ -169,6 +168,7 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
                 b.invalidate(ctx);
             }
         }, this);
+        ctxs.clear();
     }
 
     toJSON() {
@@ -181,10 +181,9 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
-            const ctxId = bobx.ctxId!;
-            bobx.forEach((value) => {
-                (value as ObservableValue<any>).ctxs!.delete(ctxId);
-            });
+            bobx.forEach(function (this: IBobXInCtx, value: IAtom) {
+                (value as ObservableValue<any>).ctxs!.delete(this.ctxId!);
+            }, bobx);
             if (phase === b.RenderPhase.Destroy) {
                 ctx.$bobxCtx = undefined;
             } else {
@@ -822,9 +821,9 @@ class ObservableMap<TValue> implements IObservableMap<TValue> {
 
     toJSON() {
         var res = Object.create(null);
-        this.$content.forEach((v, k) => {
-            res[k] = v;
-        })
+        this.$content.forEach(function (this: any, v: ObservableValue<TValue>, k: string) {
+            this[k] = v.get();
+        }, res);
         return res;
     }
 }
@@ -1104,13 +1103,12 @@ class Computed implements IBobxComputed {
             }
             if (this.state === ComputedState.Updated) {
                 this.state = ComputedState.NeedRecheck;
-                const myAtomId = this.atomId;
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     this.usedBy = undefined;
-                    usedBy.forEach((comp) => {
-                        comp.invalidateBy(myAtomId);
-                    });
+                    usedBy.forEach(function (this: Computed, comp: IBobxComputed) {
+                        comp.invalidateBy(this.atomId);
+                    }, this);
                 }
                 if (this.ctxs !== undefined) {
                     updateNextFrameList.push(this);
