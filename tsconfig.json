@@ -3,7 +3,7 @@
         "target": "es5",
         "module": "commonjs",
         "moduleResolution": "node",
-        "declaration": false,
+        "declaration": true,
         "lib": [
             "es5",
             "dom",

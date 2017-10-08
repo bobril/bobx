@@ -1,6 +1,11 @@
 CHANGELOG
 ===
 
+0.12.1
+--
+
+Update also index.d.ts
+
 0.12.0
 --
 

@@ -1,7 +1,8 @@
 import * as b from 'bobril';
-export interface IBobXInCtx {
-    ctxId: string;
-    [atomId: string]: IAtom | string;
+export declare type AtomId = number;
+export declare type CtxId = number;
+export interface IBobXInCtx extends IMap<AtomId, IAtom> {
+    ctxId?: CtxId;
 }
 export interface IBobXBobrilCtx extends b.IBobrilCtx {
     $bobxCtx?: IBobXInCtx | undefined;
@@ -10,12 +11,12 @@ export interface IObservable {
     $bobx: any;
 }
 export interface IAtom extends IObservable {
-    atomId: string;
+    atomId: AtomId;
 }
 export interface IBobxComputed extends IAtom {
     $bobx: null;
-    markUsing(atomId: string, atom: IAtom): boolean;
-    invalidateBy(atomId: string): void;
+    markUsing(atomId: AtomId, atom: IAtom): boolean;
+    invalidateBy(atomId: AtomId): void;
     update(): void;
     updateIfNeeded(): void;
 }
@@ -35,10 +36,8 @@ export declare class ObservableValue<T> implements IObservableValue<T>, IAtom {
     set(value: T): void;
     prop(): b.IProp<T>;
     _prop: b.IProp<T> | undefined;
-    atomId: string;
-    ctxs: {
-        [ctxId: string]: IBobxCallerCtx;
-    } | undefined;
+    atomId: AtomId;
+    ctxs: Map<CtxId, IBobxCallerCtx> | undefined;
     markUsage(): void;
     invalidate(): void;
     toJSON(): T;
@@ -86,25 +85,25 @@ export declare class ObservableArray<T> extends StubArray {
     toString(): string;
 }
 export declare function isObservableArray(thing: any): thing is IObservableArray<any>;
-export declare function isObservableMap(thing: any): thing is IObservableMap<any>;
+export declare function isObservableMap(thing: any): thing is IObservableMap<any, any>;
 export interface IMap<K, V> {
     clear(): void;
     delete(key: K): boolean;
-    forEach(callbackfn: (value: V, index: K, map: IMap<K, V>) => void, thisArg?: any): void;
+    forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
     get(key: K): V | undefined;
     has(key: K): boolean;
-    set(key: K, value?: V): this;
+    set(key: K, value: V): this;
     readonly size: number;
 }
 export interface IKeyValueMap<V> {
     [key: string]: V;
 }
-export declare type IMapEntry<V> = [string, V];
-export declare type IMapEntries<V> = IMapEntry<V>[];
-export interface IObservableMap<TValue> extends IMap<string, TValue> {
-    prop(key: string): b.IProp<TValue>;
+export declare type IMapEntry<K, V> = [K, V];
+export declare type IMapEntries<K, V> = IMapEntry<K, V>[];
+export interface IObservableMap<K, V> extends IMap<K, V> {
+    prop(key: K): b.IProp<V>;
 }
-export declare type IObservableMapInitialValues<V> = IMapEntries<V> | IKeyValueMap<V> | IMap<string, V>;
+export declare type IObservableMapInitialValues<K, V> = IMapEntries<K, V> | IKeyValueMap<V> | IMap<K, V> | Map<K, V>;
 export declare function initObservableClassPrototype(target: any): void;
 export interface IObservableFactory {
     <T>(): IObservableValue<T>;
@@ -119,12 +118,13 @@ export interface IObservableFactory {
     <T>(value: null | undefined): IObservableValue<T>;
     (value: null | undefined): IObservableValue<any>;
     (): IObservableValue<any>;
+    <K, V>(value: IMap<K, V>): IObservableMap<K, V>;
     <T extends Object>(value: T): T;
     <T>(value: T): IObservableValue<T>;
 }
 export interface IObservableFactories {
-    map<V>(init?: IObservableMapInitialValues<V>): IObservableMap<V>;
-    shallowMap<V>(init?: IObservableMapInitialValues<V>): IObservableMap<V>;
+    map<K, V>(init?: IObservableMapInitialValues<K, V>): IObservableMap<K, V>;
+    shallowMap<K, V>(init?: IObservableMapInitialValues<K, V>): IObservableMap<K, V>;
     /**
      * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.
      */
