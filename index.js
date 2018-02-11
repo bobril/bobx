@@ -12,7 +12,7 @@ var __extends = (this && this.__extends) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var b = require("bobril");
 function equalsIncludingNaN(a, b) {
-    return (a === b) || (a !== a && b !== b); // it correctly returns true for NaN and NaN
+    return a === b || (a !== a && b !== b); // it correctly returns true for NaN and NaN
 }
 function addHiddenProp(object, propName, value) {
     Object.defineProperty(object, propName, {
@@ -80,6 +80,7 @@ var ObservableValue = /** @class */ (function () {
     ObservableValue.prototype.markUsage = function () {
         var ctx = b.getCurrentCtx();
         if (ctx === undefined)
+            // outside of render => nothing to mark
             return;
         if (isIBobxComputed(ctx)) {
             if (ctx.markUsing(this.atomId, this)) {
@@ -130,7 +131,9 @@ var ObservableValue = /** @class */ (function () {
 exports.ObservableValue = ObservableValue;
 var previousBeforeRender = b.setBeforeRender(function (node, phase) {
     var ctx = b.getCurrentCtx();
-    if (phase === 3 /* Destroy */ || phase === 1 /* Update */ || phase === 2 /* LocalUpdate */) {
+    if (phase === 3 /* Destroy */ ||
+        phase === 1 /* Update */ ||
+        phase === 2 /* LocalUpdate */) {
         var bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             bobx.forEach(function (value) {
@@ -292,7 +295,7 @@ function generateObservablePropConfig(propName) {
     var config = observablePropertyConfigs[propName];
     if (config)
         return config;
-    return observablePropertyConfigs[propName] = {
+    return (observablePropertyConfigs[propName] = {
         configurable: true,
         enumerable: true,
         get: function () {
@@ -301,7 +304,7 @@ function generateObservablePropConfig(propName) {
         set: function (value) {
             this.$bobx[propName].set(value);
         }
-    };
+    });
 }
 function defineObservableProperty(target, behind, propName, newValue, enhancer) {
     behind[propName] = new ObservableValue(newValue, enhancer);
@@ -312,7 +315,11 @@ function defineObservableProperty(target, behind, propName, newValue, enhancer) 
 var safariPrototypeSetterInheritanceBug = (function () {
     var v = false;
     var p = {};
-    Object.defineProperty(p, "0", { set: function () { v = true; } });
+    Object.defineProperty(p, "0", {
+        set: function () {
+            v = true;
+        }
+    });
     Object.create(p)["0"] = 1;
     return v === false;
 })();
@@ -392,7 +399,11 @@ var ObservableArray = /** @class */ (function (_super) {
             arrays[_i] = arguments[_i];
         }
         this.$atom.markUsage();
-        return Array.prototype.concat.apply(this.$bobx, arrays.map(function (a) { return isObservableArray(a) ? a.$bobx : a; }));
+        return Array.prototype.concat.apply(this.$bobx, arrays.map(function (a) {
+            return isObservableArray(a)
+                ? a.$bobx
+                : a;
+        }));
     };
     ObservableArray.prototype.replace = function (newItems) {
         this.$atom.invalidate();
@@ -485,10 +496,15 @@ var ObservableArray = /** @class */ (function (_super) {
         var oldItems = this.$bobx;
         var newItems;
         if (fromIndex < toIndex) {
-            newItems = oldItems.slice(0, fromIndex).concat(oldItems.slice(fromIndex + 1, toIndex + 1), [oldItems[fromIndex]], oldItems.slice(toIndex + 1));
+            newItems = oldItems.slice(0, fromIndex).concat(oldItems.slice(fromIndex + 1, toIndex + 1), [
+                oldItems[fromIndex]
+            ], oldItems.slice(toIndex + 1));
         }
         else {
-            newItems = oldItems.slice(0, toIndex).concat([oldItems[fromIndex]], oldItems.slice(toIndex, fromIndex), oldItems.slice(fromIndex + 1));
+            // toIndex < fromIndex
+            newItems = oldItems.slice(0, toIndex).concat([
+                oldItems[fromIndex]
+            ], oldItems.slice(toIndex, fromIndex), oldItems.slice(fromIndex + 1));
         }
         this.replace(newItems);
     };
@@ -573,7 +589,8 @@ function createArrayBufferItem(index) {
     Object.defineProperty(ObservableArray.prototype, "" + index, {
         enumerable: false,
         configurable: true,
-        set: set, get: get
+        set: set,
+        get: get
     });
 }
 function createArraySetter(index) {
@@ -642,7 +659,9 @@ var ObservableMap = /** @class */ (function () {
                 return _this.set(key, value);
             });
         else if (isObservableMap(init) || isES6Map(init)) {
-            init.forEach(function (value, key) { this.set(key, value); }, this);
+            init.forEach(function (value, key) {
+                this.set(key, value);
+            }, this);
         }
         else if (isPlainObject(init)) {
             var keys = Object.keys(init);
@@ -750,7 +769,7 @@ function deepEnhancer(newValue, oldValue) {
     if (isObservable(newValue))
         return newValue;
     if (b.isArray(newValue))
-        return (new ObservableArray(newValue, deepEnhancer));
+        return new ObservableArray(newValue, deepEnhancer);
     if (isES6Map(newValue))
         return new ObservableMap(newValue, deepEnhancer);
     if (isPlainObject(newValue)) {
@@ -878,8 +897,12 @@ function createObservable(value) {
     return new ObservableValue(value, deepEnhancer);
 }
 exports.observable = createObservable;
-exports.observable.map = (function (init) { return new ObservableMap(init, deepEnhancer); });
-exports.observable.shallowMap = (function (init) { return new ObservableMap(init, referenceEnhancer); });
+exports.observable.map = (function (init) {
+    return new ObservableMap(init, deepEnhancer);
+});
+exports.observable.shallowMap = (function (init) {
+    return new ObservableMap(init, referenceEnhancer);
+});
 exports.observable.deep = deepDecorator;
 exports.observable.ref = refDecorator;
 exports.observable.shallow = shallowDecorator;
@@ -905,7 +928,9 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
         }
     }
     if (iteration >= exports.maxIterations) {
-        throw new Error("Computed values did not stabilize after " + exports.maxIterations + " iterations");
+        throw new Error("Computed values did not stabilize after " +
+            exports.maxIterations +
+            " iterations");
     }
     previousReallyBeforeFrame();
 });
@@ -963,6 +988,7 @@ var Computed = /** @class */ (function () {
     Computed.prototype.markUsage = function () {
         var ctx = b.getCurrentCtx();
         if (ctx === undefined)
+            // outside of render => nothing to mark
             return;
         if (isIBobxComputed(ctx)) {
             if (ctx.markUsing(this.atomId, this)) {
@@ -1011,7 +1037,9 @@ var Computed = /** @class */ (function () {
         this.state = 2 /* Updating */;
         try {
             var newResult = this.fn.call(this.that);
-            if (isFirst || this.exception !== undefined || !this.comparator(this.value, newResult)) {
+            if (isFirst ||
+                this.exception !== undefined ||
+                !this.comparator(this.value, newResult)) {
                 this.exception = undefined;
                 this.value = newResult;
             }
@@ -1106,7 +1134,7 @@ function observableProp(obj, key) {
     bobx = asObservableClass(obj);
     var val = bobx[key];
     if (val === undefined) {
-        obj[key]; // Has side effect to create ObservableValue 
+        obj[key]; // Has side effect to create ObservableValue
         val = bobx[key];
     }
     return val.prop();

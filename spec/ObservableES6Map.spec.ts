@@ -18,7 +18,9 @@ describe("ObservableES6Map", () => {
     });
 
     it("prop", () => {
-        let m = observable(new Map<string, string | number>([["a", 1], ["b", "B"]]));
+        let m = observable(
+            new Map<string, string | number>([["a", 1], ["b", "B"]])
+        );
         let prop = m.prop("b");
         expect(prop()).toBe("B");
         expect(prop("C")).toBe("C");
@@ -48,7 +50,7 @@ describe("ObservableES6Map", () => {
         m.forEach((v, k, m2) => {
             a.push(k, v);
             expect(m).toBe(m2);
-        })
+        });
         expect(a).toEqual(["a", 2, "b", 4]);
     });
 

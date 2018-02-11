@@ -1,5 +1,5 @@
-import * as b from 'bobril';
-import { observable } from '../index';
+import * as b from "bobril";
+import { observable } from "../index";
 
 class CounterCtx extends b.BobrilCtx<any> {
     @observable n = 0;

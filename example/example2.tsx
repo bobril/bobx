@@ -1,5 +1,5 @@
-import * as b from 'bobril';
-import { observable, observableProp } from '../index';
+import * as b from "bobril";
+import { observable, observableProp } from "../index";
 
 class State {
     @observable name = "";
@@ -10,7 +10,9 @@ class State {
 
 const state = new State();
 
-b.addRoot(() => <div>
-    <input value={observableProp(state, "name")} />
-    <span> Uppercase: {state.upperCasedName()}</span>
-</div>);
+b.addRoot(() => (
+    <div>
+        <input value={observableProp(state, "name")} />
+        <span> Uppercase: {state.upperCasedName()}</span>
+    </div>
+));

@@ -1,4 +1,4 @@
-import * as b from 'bobril';
+import * as b from "bobril";
 
 b.init(() => ({ tag: "div", children: "Bobx examples" }));
 

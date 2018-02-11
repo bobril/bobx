@@ -1,32 +1,36 @@
 {
-  "name": "bobx",
-  "version": "0.12.2",
-  "description": "Mobx like library for Bobril",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "typescript": {
-    "main": "index.ts"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "bobril": {
-    "compilerOptions": {
-      "noImplicitAny": true,
-      "noImplicitThis": true,
-      "noUnusedLocals": true,
-      "noUnusedParameters": true,
-      "noImplicitReturns": true,
-      "noFallthroughCasesInSwitch": true,
-      "strictNullChecks": true
+    "name": "bobx",
+    "version": "0.13.0",
+    "description": "Mobx like library for Bobril",
+    "main": "index.js",
+    "types": "index.d.ts",
+    "typescript": {
+        "main": "index.ts"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "prettier": {
+        "tabWidth": 4,
+        "printWidth": 120
+    },
+    "bobril": {
+        "compilerOptions": {
+            "noImplicitAny": true,
+            "noImplicitThis": true,
+            "noUnusedLocals": true,
+            "noUnusedParameters": true,
+            "noImplicitReturns": true,
+            "noFallthroughCasesInSwitch": true,
+            "strictNullChecks": true
+        }
+    },
+    "author": "Boris Letocha",
+    "license": "MIT",
+    "dependencies": {
+        "bobril": "*"
+    },
+    "devDependencies": {
+        "bobflux": "*"
     }
-  },
-  "author": "Boris Letocha",
-  "license": "MIT",
-  "dependencies": {
-    "bobril": "*"
-  },
-  "devDependencies": {
-    "bobflux": "*"
-  }
 }

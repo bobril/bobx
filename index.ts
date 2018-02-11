@@ -1,7 +1,7 @@
-import * as b from 'bobril';
+import * as b from "bobril";
 
 function equalsIncludingNaN(a: any, b: any) {
-    return (a === b) || (a !== a && b !== b); // it correctly returns true for NaN and NaN
+    return a === b || (a !== a && b !== b); // it correctly returns true for NaN and NaN
 }
 
 function addHiddenProp(object: any, propName: string, value: any) {
@@ -66,7 +66,6 @@ export interface IObservableValue<T> {
     prop(): b.IProp<T>;
 }
 
-
 let lastId = 0;
 
 function allocId(): AtomId & CtxId {
@@ -78,7 +77,6 @@ function isIBobxComputed(v: IBobxCallerCtx): v is IBobxComputed {
 }
 
 export class ObservableValue<T> implements IObservableValue<T>, IAtom {
-
     constructor(value: T, enhancer: IEnhancer<T>) {
         this.atomId = allocId();
         this.ctxs = undefined;
@@ -128,7 +126,8 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     markUsage() {
         const ctx = b.getCurrentCtx() as IBobxCallerCtx;
-        if (ctx === undefined) // outside of render => nothing to mark
+        if (ctx === undefined)
+            // outside of render => nothing to mark
             return;
         if (isIBobxComputed(ctx)) {
             if (ctx.markUsing(this.atomId, this)) {
@@ -146,8 +145,7 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx.has(this.atomId))
-                return;
+            if (bobx.has(this.atomId)) return;
             bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
                 this.ctxs = new Map();
@@ -158,9 +156,8 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
 
     invalidate() {
         const ctxs = this.ctxs;
-        if (ctxs === undefined)
-            return;
-        ctxs.forEach(function (this: ObservableValue<T>, ctx) {
+        if (ctxs === undefined) return;
+        ctxs.forEach(function(this: ObservableValue<T>, ctx) {
             if (isIBobxComputed(ctx)) {
                 ctx.invalidateBy(this.atomId);
             } else {
@@ -181,7 +178,7 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
-            bobx.forEach(function (this: IBobXInCtx, value: IAtom) {
+            bobx.forEach(function(this: IBobXInCtx, value: IAtom) {
                 (value as ObservableValue<any>).ctxs!.delete(this.ctxId!);
             }, bobx);
             if (phase === b.RenderPhase.Destroy) {
@@ -211,16 +208,14 @@ function isES6Map(value: any): value is Map<string, any> {
 }
 
 function isPlainObject(value: any): value is object {
-    if (value === null || typeof value !== "object")
-        return false;
+    if (value === null || typeof value !== "object") return false;
     const proto = Object.getPrototypeOf(value);
     return proto === Object.prototype || proto === null;
 }
 
 function asObservableObject(target: Object): ObservableObjectBehind {
     let behind = (target as IAtom).$bobx;
-    if (behind !== undefined)
-        return behind;
+    if (behind !== undefined) return behind;
     behind = Object.create(null);
     addHiddenFinalProp(target, "$bobx", behind);
     return behind;
@@ -228,16 +223,14 @@ function asObservableObject(target: Object): ObservableObjectBehind {
 
 export function asObservableClass(target: Object): ObservableObjectBehind {
     let behind = (target as IAtom).$bobx;
-    if (behind !== LazyClass)
-        return behind;
+    if (behind !== LazyClass) return behind;
     behind = {};
     (target as any).$bobx = behind;
     return behind;
 }
 
 export function deepEqual(a: any, b: any): boolean {
-    if (a === b)
-        return true;
+    if (a === b) return true;
     if (typeof a !== "object" || typeof b !== "object") {
         if (a !== a && b !== b) return true;
         return false;
@@ -245,13 +238,11 @@ export function deepEqual(a: any, b: any): boolean {
     if (isArrayLike(a)) {
         if (!isArrayLike(b)) return false;
         const length = a.length;
-        if (length != b.length)
-            return false;
+        if (length != b.length) return false;
         const aArray = a.$bobx || a;
         const bArray = b.$bobx || b;
         for (let i = 0; i < length; i++) {
-            if (!deepEqual(aArray[i], bArray[i]))
-                return false;
+            if (!deepEqual(aArray[i], bArray[i])) return false;
         }
         return true;
     }
@@ -261,7 +252,10 @@ export function deepEqual(a: any, b: any): boolean {
             let res = true;
             a.forEach((v, k) => {
                 if (!res) return;
-                if (!b.has(k)) { res = false; return; }
+                if (!b.has(k)) {
+                    res = false;
+                    return;
+                }
                 if (!deepEqual(v, b.get(k))) res = false;
             });
             return res;
@@ -276,7 +270,10 @@ export function deepEqual(a: any, b: any): boolean {
         let res = true;
         a.forEach((v, k) => {
             if (!res) return;
-            if (!(k in bb)) { res = false; return; }
+            if (!(k in bb)) {
+                res = false;
+                return;
+            }
             if (!deepEqual(v, b[k])) res = false;
         });
         return res;
@@ -292,7 +289,10 @@ export function deepEqual(a: any, b: any): boolean {
         let res = true;
         b.forEach((v, k) => {
             if (!res) return;
-            if (!(k in aa)) { res = false; return; }
+            if (!(k in aa)) {
+                res = false;
+                return;
+            }
             if (!deepEqual(v, a[k])) res = false;
         });
         return res;
@@ -308,10 +308,8 @@ export function deepEqual(a: any, b: any): boolean {
     let aKeys = 0;
     for (let prop in aa) {
         aKeys++;
-        if (!(prop in bb))
-            return false;
-        if (!deepEqual(a[prop], b[prop]))
-            return false;
+        if (!(prop in bb)) return false;
+        if (!deepEqual(a[prop], b[prop])) return false;
     }
     return aKeys == bKeys;
 }
@@ -320,18 +318,17 @@ const observablePropertyConfigs: { [propName: string]: any } = Object.create(nul
 
 function generateObservablePropConfig(propName: string) {
     const config = observablePropertyConfigs[propName];
-    if (config)
-        return config;
-    return observablePropertyConfigs[propName] = {
+    if (config) return config;
+    return (observablePropertyConfigs[propName] = {
         configurable: true,
         enumerable: true,
-        get: function (this: IAtom) {
+        get: function(this: IAtom) {
             return this.$bobx[propName].get();
         },
-        set: function (this: IAtom, value: any) {
+        set: function(this: IAtom, value: any) {
             this.$bobx[propName].set(value);
         }
-    };
+    });
 }
 
 export type ObservableObjectBehind = { [prop: string]: IObservableValue<any> };
@@ -353,7 +350,11 @@ function defineObservableProperty(
 const safariPrototypeSetterInheritanceBug = (() => {
     let v = false;
     const p = {};
-    Object.defineProperty(p, "0", { set: () => { v = true; } });
+    Object.defineProperty(p, "0", {
+        set: () => {
+            v = true;
+        }
+    });
     (Object.create(p) as any)["0"] = 1;
     return v === false;
 })();
@@ -361,7 +362,11 @@ const safariPrototypeSetterInheritanceBug = (() => {
 export interface IObservableArray<T> extends Array<T> {
     clear(): T[];
     replace(newItems: T[]): T[];
-    find(predicate: (item: T, index: number, array: IObservableArray<T>) => boolean, thisArg?: any, fromIndex?: number): T;
+    find(
+        predicate: (item: T, index: number, array: IObservableArray<T>) => boolean,
+        thisArg?: any,
+        fromIndex?: number
+    ): T;
     remove(value: T): boolean;
     move(fromIndex: number, toIndex: number): void;
 }
@@ -374,8 +379,7 @@ export interface IObservableArray<T> extends Array<T> {
 let observableArrayPropCount = 0;
 
 // Typescript workaround to make sure ObservableArray extends Array
-export class StubArray {
-}
+export class StubArray {}
 StubArray.prototype = [];
 
 export class ObservableArray<T> extends StubArray {
@@ -405,25 +409,17 @@ export class ObservableArray<T> extends StubArray {
     splice(index?: number, deleteCount?: number, newItems?: T[]): T[] {
         const length = this.$bobx.length;
 
-        if (index === undefined)
-            index = 0;
-        else if (index > length)
-            index = length;
-        else if (index < 0)
-            index = Math.max(0, length + index);
+        if (index === undefined) index = 0;
+        else if (index > length) index = length;
+        else if (index < 0) index = Math.max(0, length + index);
 
-        if (arguments.length === 1)
-            deleteCount = length - index;
-        else if (deleteCount == null)
-            deleteCount = 0;
-        else
-            deleteCount = Math.max(0, Math.min(deleteCount, length - index));
+        if (arguments.length === 1) deleteCount = length - index;
+        else if (deleteCount == null) deleteCount = 0;
+        else deleteCount = Math.max(0, Math.min(deleteCount, length - index));
 
-        if (newItems === undefined)
-            newItems = [];
+        if (newItems === undefined) newItems = [];
 
-        if (newItems.length > 0 || deleteCount > 0)
-            this.$atom.invalidate();
+        if (newItems.length > 0 || deleteCount > 0) this.$atom.invalidate();
         reserveArrayBuffer(length + newItems.length - deleteCount);
 
         for (let i = 0; i < newItems.length; i++) {
@@ -434,12 +430,9 @@ export class ObservableArray<T> extends StubArray {
 
     setArrayLength(newLength: number) {
         let currentLength = this.$bobx.length;
-        if (newLength === currentLength)
-            return;
-        else if (newLength > currentLength)
-            this.splice(currentLength, 0, new Array(newLength - currentLength));
-        else
-            this.splice(newLength, currentLength - newLength);
+        if (newLength === currentLength) return;
+        else if (newLength > currentLength) this.splice(currentLength, 0, new Array(newLength - currentLength));
+        else this.splice(newLength, currentLength - newLength);
     }
 
     clear(): T[] {
@@ -448,7 +441,10 @@ export class ObservableArray<T> extends StubArray {
 
     concat(...arrays: T[][]): T[] {
         this.$atom.markUsage();
-        return Array.prototype.concat.apply(this.$bobx, arrays.map(a => isObservableArray(a) ? (a as any as ObservableArray<T>).$bobx : a));
+        return Array.prototype.concat.apply(
+            this.$bobx,
+            arrays.map(a => (isObservableArray(a) ? ((a as any) as ObservableArray<T>).$bobx : a))
+        );
     }
 
     replace(newItems: T[]) {
@@ -457,9 +453,9 @@ export class ObservableArray<T> extends StubArray {
         return this.splice(0, this.$bobx.length, newItems);
     }
 
-	/**
-	 * Converts this array back to a (shallow) javascript structure.
-	 */
+    /**
+     * Converts this array back to a (shallow) javascript structure.
+     */
     toJS(): T[] {
         return (this as any).slice();
     }
@@ -469,12 +465,15 @@ export class ObservableArray<T> extends StubArray {
         return this.$bobx;
     }
 
-    find(predicate: (item: T, index: number, array: ObservableArray<T>) => boolean, thisArg?: any, fromIndex = 0): T | undefined {
+    find(
+        predicate: (item: T, index: number, array: ObservableArray<T>) => boolean,
+        thisArg?: any,
+        fromIndex = 0
+    ): T | undefined {
         this.$atom.markUsage();
-        const values = this.$bobx, l = values.length;
-        for (let i = fromIndex; i < l; i++)
-            if (predicate.call(thisArg, values[i], i, this))
-                return values[i];
+        const values = this.$bobx,
+            l = values.length;
+        for (let i = fromIndex; i < l; i++) if (predicate.call(thisArg, values[i], i, this)) return values[i];
         return undefined;
     }
 
@@ -545,9 +544,20 @@ export class ObservableArray<T> extends StubArray {
         const oldItems = this.$bobx;
         let newItems: T[];
         if (fromIndex < toIndex) {
-            newItems = [...oldItems.slice(0, fromIndex), ...oldItems.slice(fromIndex + 1, toIndex + 1), oldItems[fromIndex], ...oldItems.slice(toIndex + 1)];
-        } else {	// toIndex < fromIndex
-            newItems = [...oldItems.slice(0, toIndex), oldItems[fromIndex], ...oldItems.slice(toIndex, fromIndex), ...oldItems.slice(fromIndex + 1)];
+            newItems = [
+                ...oldItems.slice(0, fromIndex),
+                ...oldItems.slice(fromIndex + 1, toIndex + 1),
+                oldItems[fromIndex],
+                ...oldItems.slice(toIndex + 1)
+            ];
+        } else {
+            // toIndex < fromIndex
+            newItems = [
+                ...oldItems.slice(0, toIndex),
+                oldItems[fromIndex],
+                ...oldItems.slice(toIndex, fromIndex),
+                ...oldItems.slice(fromIndex + 1)
+            ];
         }
         this.replace(newItems);
     }
@@ -593,15 +603,14 @@ makeNonEnumerable(ObservableArray.prototype, [
 Object.defineProperty(ObservableArray.prototype, "length", {
     enumerable: false,
     configurable: true,
-    get: function (this: ObservableArray<any>): number {
+    get: function(this: ObservableArray<any>): number {
         this.$atom.markUsage();
         return this.$bobx.length;
     },
-    set: function (this: ObservableArray<any>, newLength: number) {
+    set: function(this: ObservableArray<any>, newLength: number) {
         this.setArrayLength(newLength);
     }
 });
-
 
 // Wrap function from prototype
 [
@@ -618,7 +627,7 @@ Object.defineProperty(ObservableArray.prototype, "length", {
     "some"
 ].forEach(funcName => {
     const baseFunc = (Array.prototype as any)[funcName];
-    addHiddenProp(ObservableArray.prototype, funcName, function (this: ObservableArray<any>) {
+    addHiddenProp(ObservableArray.prototype, funcName, function(this: ObservableArray<any>) {
         this.$atom.markUsage();
         return baseFunc.apply(this.$bobx, arguments);
     });
@@ -637,12 +646,13 @@ function createArrayBufferItem(index: number) {
     Object.defineProperty(ObservableArray.prototype, "" + index, {
         enumerable: false,
         configurable: true,
-        set, get
+        set,
+        get
     });
 }
 
 function createArraySetter(index: number) {
-    return function <T>(this: ObservableArray<any>, newValue: T) {
+    return function<T>(this: ObservableArray<any>, newValue: T) {
         const values = this.$bobx;
         if (index < values.length) {
             // update at index in range
@@ -656,13 +666,12 @@ function createArraySetter(index: number) {
         } else if (index === values.length) {
             // add a new item
             this.push(newValue);
-        } else
-            throw new Error(`Array index out of bounds, ${index} is larger than ${values.length}`);
+        } else throw new Error(`Array index out of bounds, ${index} is larger than ${values.length}`);
     };
 }
 
 function createArrayGetter(index: number) {
-    return function (this: ObservableArray<any>) {
+    return function(this: ObservableArray<any>) {
         const values = this.$bobx;
         this.$atom.markUsage();
         if (index < values.length) {
@@ -676,8 +685,7 @@ function reserveArrayBuffer(max: number) {
     max++;
     if (observableArrayPropCount >= max) return;
     max = Math.max(Math.ceil(observableArrayPropCount * 1.5), max);
-    for (let index = observableArrayPropCount; index < max; index++)
-        createArrayBufferItem(index);
+    for (let index = observableArrayPropCount; index < max; index++) createArrayBufferItem(index);
     observableArrayPropCount = max;
 }
 
@@ -738,18 +746,18 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
         this.$content = new Map();
         this._size = 0;
-        if (Array.isArray(init))
-            init.forEach(([key, value]) => this.set(key, value));
+        if (Array.isArray(init)) init.forEach(([key, value]) => this.set(key, value));
         else if (isObservableMap(init) || isES6Map(init)) {
-            (init as IMap<K, V>).forEach(function (this: ObservableMap<K, V>, value: V, key: K) { this.set(key, value); }, this);
+            (init as IMap<K, V>).forEach(function(this: ObservableMap<K, V>, value: V, key: K) {
+                this.set(key, value);
+            }, this);
         } else if (isPlainObject(init)) {
             const keys = Object.keys(init);
             for (var i = 0; i < keys.length; i++) {
                 const key = keys[i];
-                this.set(key as any as K, (init as IKeyValueMap<V>)[key]);
+                this.set((key as any) as K, (init as IKeyValueMap<V>)[key]);
             }
-        } else if (init != null)
-            throw new Error("Cannot initialize map from " + init);
+        } else if (init != null) throw new Error("Cannot initialize map from " + init);
     }
 
     has(key: K): boolean {
@@ -802,7 +810,7 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
     clear(): void {
         if (this._size == 0) return;
         let c = this.$content;
-        c.forEach((v) => v.invalidate());
+        c.forEach(v => v.invalidate());
         this.$atom.invalidate();
         this._size = 0;
         this.$content.clear();
@@ -822,14 +830,14 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
 
     forEach(callbackfn: (value: V, index: K, map: IObservableMap<K, V>) => void, thisArg?: any): void {
         this.$atom.markUsage();
-        this.$content.forEach(function (this: ObservableMap<K, V>, value: ObservableValue<V>, key: K) {
+        this.$content.forEach(function(this: ObservableMap<K, V>, value: ObservableValue<V>, key: K) {
             callbackfn.call(thisArg, value.get(), key, this);
         }, this);
     }
 
     toJSON() {
         var res = Object.create(null);
-        this.$content.forEach(function (this: any, v: ObservableValue<V>, k: K) {
+        this.$content.forEach(function(this: any, v: ObservableValue<V>, k: K) {
             this[k] = v.get();
         }, res);
         return res;
@@ -839,16 +847,11 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
 addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
 
 function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (newValue === oldValue)
-        return oldValue;
-    if (newValue == null)
-        return newValue;
-    if (isObservable(newValue))
-        return newValue;
-    if (b.isArray(newValue))
-        return (new ObservableArray(newValue, deepEnhancer)) as any;
-    if (isES6Map(newValue))
-        return new ObservableMap(newValue, deepEnhancer) as any;
+    if (newValue === oldValue) return oldValue;
+    if (newValue == null) return newValue;
+    if (isObservable(newValue)) return newValue;
+    if (b.isArray(newValue)) return new ObservableArray(newValue, deepEnhancer) as any;
+    if (isES6Map(newValue)) return new ObservableMap(newValue, deepEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
@@ -861,16 +864,11 @@ function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
 }
 
 function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (newValue === oldValue)
-        return oldValue;
-    if (newValue == null)
-        return newValue;
-    if (isObservable(newValue))
-        return newValue;
-    if (b.isArray(newValue))
-        return new ObservableArray(newValue, referenceEnhancer) as any;
-    if (isES6Map(newValue))
-        return new ObservableMap(newValue, referenceEnhancer) as any;
+    if (newValue === oldValue) return oldValue;
+    if (newValue == null) return newValue;
+    if (isObservable(newValue)) return newValue;
+    if (b.isArray(newValue)) return new ObservableArray(newValue, referenceEnhancer) as any;
+    if (isES6Map(newValue)) return new ObservableMap(newValue, referenceEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
@@ -883,16 +881,11 @@ function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
 }
 
 function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (deepEqual(newValue, oldValue))
-        return oldValue!;
-    if (newValue == null)
-        return newValue;
-    if (isObservable(newValue))
-        return newValue;
-    if (b.isArray(newValue))
-        return new ObservableArray(newValue, deepStructEnhancer) as any;
-    if (isES6Map(newValue))
-        return new ObservableMap(newValue, deepStructEnhancer) as any;
+    if (deepEqual(newValue, oldValue)) return oldValue!;
+    if (newValue == null) return newValue;
+    if (isObservable(newValue)) return newValue;
+    if (b.isArray(newValue)) return new ObservableArray(newValue, deepStructEnhancer) as any;
+    if (isES6Map(newValue)) return new ObservableMap(newValue, deepStructEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
         let behind = asObservableObject(res);
@@ -906,8 +899,7 @@ function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
 }
 
 function refStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (deepEqual(newValue, oldValue))
-        return oldValue!;
+    if (deepEqual(newValue, oldValue)) return oldValue!;
     return newValue;
 }
 
@@ -929,9 +921,9 @@ export function initObservableClassPrototype(target: any) {
             value: LazyClass
         });
         if (!("toJSON" in target)) {
-            target.toJSON = function (this: IAtom) {
+            target.toJSON = function(this: IAtom) {
                 return this.$bobx;
-            }
+            };
         }
     }
 }
@@ -942,7 +934,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
         return {
             configurable: true,
             enumerable: false,
-            get: function (this: IAtom) {
+            get: function(this: IAtom) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
                     let behind = asObservableClass(this);
@@ -951,7 +943,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
                 }
                 return val.get();
             },
-            set: function (this: IAtom, value: any) {
+            set: function(this: IAtom, value: any) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
                     let behind = asObservableClass(this);
@@ -962,7 +954,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
                 }
             }
         };
-    }
+    };
 }
 
 export interface IObservableFactory {
@@ -989,14 +981,14 @@ export interface IObservableFactories {
 
     shallowMap<K, V>(init?: IObservableMapInitialValues<K, V>): IObservableMap<K, V>;
 
-	/**
-	 * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.
-	 */
+    /**
+     * Decorator that creates an observable that only observes the references, but doesn't try to turn the assigned value into an observable.
+     */
     ref(target: Object, property: string, descriptor?: PropertyDescriptor): any;
 
-	/**
-	 * Decorator that creates an observable converts its value (objects, maps or arrays) into a shallow observable structure
-	 */
+    /**
+     * Decorator that creates an observable converts its value (objects, maps or arrays) into a shallow observable structure
+     */
     shallow(target: Object, property: string, descriptor?: PropertyDescriptor): any;
 
     deep(target: Object, property: string, descriptor?: PropertyDescriptor): any;
@@ -1006,34 +998,33 @@ export interface IObservableFactories {
 
 function createObservable(value: any = undefined): IObservableValue<any> {
     // @observable someProp;
-    if (typeof arguments[1] === "string")
-        return deepDecorator.apply(null, arguments);
+    if (typeof arguments[1] === "string") return deepDecorator.apply(null, arguments);
 
     // it is an observable already, done
-    if (isObservable(value))
-        return value;
+    if (isObservable(value)) return value;
 
     // something that can be converted and mutated?
     const res = deepEnhancer(value, undefined);
 
     // this value could be converted to a new observable data structure, return it
-    if (res !== value)
-        return res;
+    if (res !== value) return res;
 
     return new ObservableValue(value, deepEnhancer);
 }
 
-export var observable: IObservableFactory & IObservableFactories & {
-    deep: {
-        struct(target: Object, property: string, descriptor?: PropertyDescriptor): any
-    },
-    ref: {
-        struct(target: Object, property: string, descriptor?: PropertyDescriptor): any
-    }
-} = createObservable as any;
+export var observable: IObservableFactory &
+    IObservableFactories & {
+        deep: {
+            struct(target: Object, property: string, descriptor?: PropertyDescriptor): any;
+        };
+        ref: {
+            struct(target: Object, property: string, descriptor?: PropertyDescriptor): any;
+        };
+    } = createObservable as any;
 
 observable.map = ((init: IObservableMapInitialValues<any, any>) => new ObservableMap(init, deepEnhancer)) as any;
-observable.shallowMap = ((init: IObservableMapInitialValues<any, any>) => new ObservableMap(init, referenceEnhancer)) as any;
+observable.shallowMap = ((init: IObservableMapInitialValues<any, any>) =>
+    new ObservableMap(init, referenceEnhancer)) as any;
 observable.deep = deepDecorator as any;
 observable.ref = refDecorator as any;
 observable.shallow = shallowDecorator;
@@ -1100,15 +1091,13 @@ class Computed implements IBobxComputed {
             this.using = using;
             return true;
         }
-        if (using.has(atomId))
-            return false;
+        if (using.has(atomId)) return false;
         using.set(atomId, atom);
         return true;
     }
     invalidateBy(atomId: AtomId): void {
         let using = this.using;
-        if (using === undefined)
-            return;
+        if (using === undefined) return;
         if (using.delete(atomId)) {
             if (this.state === ComputedState.Updating) {
                 throw new Error("Modifying inputs during updating computed");
@@ -1118,7 +1107,7 @@ class Computed implements IBobxComputed {
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     this.usedBy = undefined;
-                    usedBy.forEach(function (this: Computed, comp: IBobxComputed) {
+                    usedBy.forEach(function(this: Computed, comp: IBobxComputed) {
                         comp.invalidateBy(this.atomId);
                     }, this);
                 }
@@ -1146,7 +1135,8 @@ class Computed implements IBobxComputed {
 
     markUsage() {
         const ctx = b.getCurrentCtx() as IBobxCallerCtx;
-        if (ctx === undefined) // outside of render => nothing to mark
+        if (ctx === undefined)
+            // outside of render => nothing to mark
             return;
         if (isIBobxComputed(ctx)) {
             if (ctx.markUsing(this.atomId, this)) {
@@ -1164,8 +1154,7 @@ class Computed implements IBobxComputed {
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx.has(this.atomId))
-                return;
+            if (bobx.has(this.atomId)) return;
             bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
                 this.ctxs = new Map();
@@ -1176,9 +1165,8 @@ class Computed implements IBobxComputed {
 
     invalidate() {
         const ctxs = this.ctxs;
-        if (ctxs === undefined)
-            return;
-        ctxs.forEach(function (this: Computed, ctx) {
+        if (ctxs === undefined) return;
+        ctxs.forEach(function(this: Computed, ctx) {
             ctx.$bobxCtx!.delete(this.atomId);
             b.invalidate(ctx);
         }, this);
@@ -1186,8 +1174,7 @@ class Computed implements IBobxComputed {
     }
 
     updateIfNeeded() {
-        if (this.state === ComputedState.NeedRecheck)
-            this.update();
+        if (this.state === ComputedState.NeedRecheck) this.update();
     }
     update() {
         let backupCurrentCtx = b.getCurrentCtx();
@@ -1202,13 +1189,11 @@ class Computed implements IBobxComputed {
             } else {
                 isFirst = true;
             }
-        }
-        catch (err) {
+        } catch (err) {
             this.exception = err;
             this.value = undefined;
         }
-        if (!isFirst)
-            this.invalidate();
+        if (!isFirst) this.invalidate();
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
     }
@@ -1220,8 +1205,7 @@ class Computed implements IBobxComputed {
         if (this.state !== ComputedState.Updated) {
             this.update();
         }
-        if (this.exception !== undefined)
-            throw this.exception;
+        if (this.exception !== undefined) throw this.exception;
         return this.value;
     }
 }
@@ -1229,7 +1213,9 @@ class Computed implements IBobxComputed {
 export interface IComputedFactory {
     (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;
     struct: (target: any, propName: string, descriptor: PropertyDescriptor) => TypedPropertyDescriptor<any>;
-    equals<T>(comparator: IEqualsComparer<T>): (target: any, propName: string, descriptor: TypedPropertyDescriptor<any>) => TypedPropertyDescriptor<any>;
+    equals<T>(
+        comparator: IEqualsComparer<T>
+    ): (target: any, propName: string, descriptor: TypedPropertyDescriptor<any>) => TypedPropertyDescriptor<any>;
 }
 
 function buildComputed<T>(comparator: IEqualsComparer<T>) {
@@ -1240,7 +1226,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
             return {
                 configurable: true,
                 enumerable: false,
-                get: function (this: IAtom) {
+                get: function(this: IAtom) {
                     let val: Computed | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
@@ -1256,7 +1242,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
             return {
                 configurable: true,
                 enumerable: false,
-                value: function (this: IAtom) {
+                value: function(this: IAtom) {
                     let val: Computed | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
@@ -1276,13 +1262,10 @@ computed.equals = buildComputed;
 export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]> {
-    if (obj == null)
-        throw new Error("observableProp parameter is " + obj);
-    let bobx = (obj as any as IAtom).$bobx;
-    if (bobx === undefined)
-        throw new Error("observableProp parameter is not observable: " + obj);
-    if (bobx === ObservableMapMarker)
-        throw new Error("observableProp parameter is observableMap");
+    if (obj == null) throw new Error("observableProp parameter is " + obj);
+    let bobx = ((obj as any) as IAtom).$bobx;
+    if (bobx === undefined) throw new Error("observableProp parameter is not observable: " + obj);
+    if (bobx === ObservableMapMarker) throw new Error("observableProp parameter is observableMap");
     if (b.isArray(bobx)) {
         // Does this pays off to cache and/or inline?
         return (value?: any) => {
@@ -1298,7 +1281,7 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
     bobx = asObservableClass(obj);
     let val = bobx[key];
     if (val === undefined) {
-        obj[key]; // Has side effect to create ObservableValue 
+        obj[key]; // Has side effect to create ObservableValue
         val = bobx[key]!;
     }
     return val.prop();
