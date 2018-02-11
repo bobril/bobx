@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.1
+
+Now tested in TS 2.7.1.
+
 ## 0.13.0
 
 Updated to latest Bobril. Strict compilation. Prettier settings.

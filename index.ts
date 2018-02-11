@@ -736,7 +736,7 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
         this.$atom.markUsage();
         return this._size;
     }
-    $bobx: 0;
+    $bobx: 0 | undefined;
     $enhancer: IEnhancer<V>;
     $atom: ObservableValue<any>;
     $content: IMap<K, ObservableValue<V>>;

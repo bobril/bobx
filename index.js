@@ -131,9 +131,7 @@ var ObservableValue = /** @class */ (function () {
 exports.ObservableValue = ObservableValue;
 var previousBeforeRender = b.setBeforeRender(function (node, phase) {
     var ctx = b.getCurrentCtx();
-    if (phase === 3 /* Destroy */ ||
-        phase === 1 /* Update */ ||
-        phase === 2 /* LocalUpdate */) {
+    if (phase === 3 /* Destroy */ || phase === 1 /* Update */ || phase === 2 /* LocalUpdate */) {
         var bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             bobx.forEach(function (value) {
@@ -399,11 +397,7 @@ var ObservableArray = /** @class */ (function (_super) {
             arrays[_i] = arguments[_i];
         }
         this.$atom.markUsage();
-        return Array.prototype.concat.apply(this.$bobx, arrays.map(function (a) {
-            return isObservableArray(a)
-                ? a.$bobx
-                : a;
-        }));
+        return Array.prototype.concat.apply(this.$bobx, arrays.map(function (a) { return (isObservableArray(a) ? a.$bobx : a); }));
     };
     ObservableArray.prototype.replace = function (newItems) {
         this.$atom.invalidate();
@@ -897,9 +891,7 @@ function createObservable(value) {
     return new ObservableValue(value, deepEnhancer);
 }
 exports.observable = createObservable;
-exports.observable.map = (function (init) {
-    return new ObservableMap(init, deepEnhancer);
-});
+exports.observable.map = (function (init) { return new ObservableMap(init, deepEnhancer); });
 exports.observable.shallowMap = (function (init) {
     return new ObservableMap(init, referenceEnhancer);
 });
@@ -928,9 +920,7 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
         }
     }
     if (iteration >= exports.maxIterations) {
-        throw new Error("Computed values did not stabilize after " +
-            exports.maxIterations +
-            " iterations");
+        throw new Error("Computed values did not stabilize after " + exports.maxIterations + " iterations");
     }
     previousReallyBeforeFrame();
 });
@@ -1037,9 +1027,7 @@ var Computed = /** @class */ (function () {
         this.state = 2 /* Updating */;
         try {
             var newResult = this.fn.call(this.that);
-            if (isFirst ||
-                this.exception !== undefined ||
-                !this.comparator(this.value, newResult)) {
+            if (isFirst || this.exception !== undefined || !this.comparator(this.value, newResult)) {
                 this.exception = undefined;
                 this.value = newResult;
             }
