@@ -342,6 +342,7 @@ var ObservableArray = /** @class */ (function (_super) {
         _this.$enhancer = enhancer;
         _this.$atom = new ObservableValue(null, referenceEnhancer);
         if (initialValues && initialValues.length) {
+            reserveArrayBuffer(initialValues.length);
             _this.$bobx = initialValues.map(function (v) { return enhancer(v, undefined); });
         }
         else {

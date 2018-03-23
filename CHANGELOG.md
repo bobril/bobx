@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.2
+
+Fixed bug with not expanding ObservableArray getters and setters when Array is constructed.
+
 ## 0.13.1
 
 Now tested in TS 2.7.1.

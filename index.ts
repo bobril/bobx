@@ -394,6 +394,7 @@ export class ObservableArray<T> extends StubArray {
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
 
         if (initialValues && initialValues.length) {
+            reserveArrayBuffer(initialValues.length);
             this.$bobx = initialValues.map(v => enhancer(v, undefined));
         } else {
             this.$bobx = [];
