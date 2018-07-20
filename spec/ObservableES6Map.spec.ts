@@ -1,4 +1,4 @@
-import { observable } from "../index";
+import { observable, IMap } from "../index";
 
 describe("ObservableES6Map", () => {
     it("construct", () => {
@@ -49,7 +49,7 @@ describe("ObservableES6Map", () => {
         let a: (string | number)[] = [];
         m.forEach((v, k, m2) => {
             a.push(k, v);
-            expect(m).toBe(m2);
+            expect(m as IMap<string,number>).toBe(m2);
         });
         expect(a).toEqual(["a", 2, "b", 4]);
     });

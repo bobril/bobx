@@ -1,37 +1,42 @@
 {
-    "compilerOptions": {
-        "target": "es5",
-        "module": "commonjs",
-        "moduleResolution": "node",
-        "declaration": false,
-        "lib": [
-            "es5",
-            "dom",
-            "es2015.core",
-            "es2015.promise",
-            "es2015.iterable",
-            "es2015.collection"
-        ],
-        "removeComments": false,
-        "noLib": false,
-        "preserveConstEnums": false,
-        "jsx": "react",
-        "reactNamespace": "b",
-        "noImplicitAny": true,
-        "noImplicitThis": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noImplicitReturns": true,
-        "noFallthroughCasesInSwitch": true,
-        "strictNullChecks": true,
-        "experimentalDecorators": true,
-        "strict": true,
-        "types": []
-    },
-    "include": ["**/*"],
-    "compileOnSave": false,
-    "files": [
-        "c:/Research/bobril-build/typings/jasmine/jasmine.d.ts",
-        "node_modules/bobril/jsx.d.ts"
-    ]
+  "compilerOptions": {
+    "allowJs": false,
+    "checkJs": false,
+    "declaration": true,
+    "experimentalDecorators": true,
+    "jsx": "react",
+    "lib": [
+      "es5",
+      "dom",
+      "es2015.core",
+      "es2015.promise",
+      "es2015.iterable",
+      "es2015.collection"
+    ],
+    "module": "commonjs",
+    "noEmitHelpers": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "preserveConstEnums": false,
+    "reactNamespace": "b",
+    "removeComments": false,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "target": "es5",
+    "types": []
+  },
+  "files": [
+    "node_modules/bobril/jsx.d.ts",
+    "C:/Users/boris/.bbcore/tools/jasmine.d.ts"
+  ],
+  "include": [
+    "**/*"
+  ]
 }
