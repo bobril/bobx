@@ -50,6 +50,7 @@ export interface IAtom extends IObservable {
 
 export interface IBobxComputed extends IAtom {
     $bobx: null;
+    partialResults: boolean;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
     invalidateBy(atomId: AtomId): void;
     update(): void;
@@ -1045,6 +1046,7 @@ let updateNextFrameList: IBobxComputed[] = [];
 export let maxIterations = 100;
 
 const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
+    frameStart = b.now();
     let iteration = 0;
     while (iteration++ < maxIterations) {
         let list = updateNextFrameList;
@@ -1076,6 +1078,7 @@ export class ComputedImpl implements IBobxComputed {
     value: any;
     exception: any;
     state: ComputedState;
+    partialResults: boolean;
 
     comparator: IEqualsComparer<any>;
 
@@ -1133,6 +1136,7 @@ export class ComputedImpl implements IBobxComputed {
         this.comparator = comparator;
         this.using = undefined;
         this.usedBy = undefined;
+        this.partialResults = false;
     }
 
     markUsage() {
@@ -1178,9 +1182,15 @@ export class ComputedImpl implements IBobxComputed {
     updateIfNeeded() {
         if (this.state === ComputedState.NeedRecheck) this.update();
     }
+
     update() {
+        if (alreadyInterrupted && this.partialResults) {
+            setPartialResults();
+            return;
+        }
         let backupCurrentCtx = b.getCurrentCtx();
         b.setCurrentCtx(this as any);
+        this.partialResults = false;
         let isFirst = this.state === ComputedState.First;
         this.state = ComputedState.Updating;
         try {
@@ -1196,9 +1206,12 @@ export class ComputedImpl implements IBobxComputed {
             this.value = undefined;
         }
         if (!isFirst) this.invalidate();
+        if (alreadyInterrupted) this.partialResults = true;
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
+        if (this.partialResults) setPartialResults();
     }
+
     run() {
         if (this.state === ComputedState.Updating) {
             throw new Error("Recursively calling computed value");
@@ -1287,4 +1300,45 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
         val = bobx[key]!;
     }
     return val.prop();
+}
+
+var frameStart = b.now();
+var outsideOfComputedPartialResults = false;
+var alreadyInterrupted = false;
+var haveTimeBudget: () => boolean = () => b.now() - frameStart < 10; // Spend only first 10ms from each frame in computed methods.
+
+export function resetGotPartialResults() {
+    const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+    if (ctx !== undefined && isIBobxComputed(ctx)) {
+        throw new Error("resetGotPartialResults cannot be called from computed method");
+    }
+    outsideOfComputedPartialResults = false;
+}
+
+function setPartialResults(): void {
+    const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+    if (ctx !== undefined && isIBobxComputed(ctx)) {
+        ctx.partialResults = true;
+    }
+    outsideOfComputedPartialResults = true;
+}
+
+export function gotPartialResults(): boolean {
+    const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+    if (ctx !== undefined && isIBobxComputed(ctx)) {
+        return ctx.partialResults;
+    }
+    return outsideOfComputedPartialResults;
+}
+
+export function interrupted(): boolean {
+    if (alreadyInterrupted) return true;
+    if (gotPartialResults()) {
+        return true;
+    }
+    if (!haveTimeBudget()) {
+        alreadyInterrupted = true;
+        return true;
+    }
+    return false;
 }
