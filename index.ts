@@ -1068,7 +1068,7 @@ const enum ComputedState {
     Updated
 }
 
-class Computed implements IBobxComputed {
+export class ComputedImpl implements IBobxComputed {
     fn: Function;
     that: any;
     atomId: AtomId;
@@ -1096,6 +1096,7 @@ class Computed implements IBobxComputed {
         using.set(atomId, atom);
         return true;
     }
+
     invalidateBy(atomId: AtomId): void {
         let using = this.using;
         if (using === undefined) return;
@@ -1108,7 +1109,7 @@ class Computed implements IBobxComputed {
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     this.usedBy = undefined;
-                    usedBy.forEach(function(this: Computed, comp: IBobxComputed) {
+                    usedBy.forEach(function(this: ComputedImpl, comp: IBobxComputed) {
                         comp.invalidateBy(this.atomId);
                     }, this);
                 }
@@ -1167,7 +1168,7 @@ class Computed implements IBobxComputed {
     invalidate() {
         const ctxs = this.ctxs;
         if (ctxs === undefined) return;
-        ctxs.forEach(function(this: Computed, ctx) {
+        ctxs.forEach(function(this: ComputedImpl, ctx) {
             ctx.$bobxCtx!.delete(this.atomId);
             b.invalidate(ctx);
         }, this);
@@ -1228,10 +1229,10 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                 configurable: true,
                 enumerable: false,
                 get: function(this: IAtom) {
-                    let val: Computed | undefined = this.$bobx[propName];
+                    let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
-                        val = new Computed(fn, this, comparator);
+                        val = new ComputedImpl(fn, this, comparator);
                         (behind as any)[propName] = val;
                     }
                     return val.run();
@@ -1244,10 +1245,10 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                 configurable: true,
                 enumerable: false,
                 value: function(this: IAtom) {
-                    let val: Computed | undefined = this.$bobx[propName];
+                    let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
-                        val = new Computed(fn, this, comparator);
+                        val = new ComputedImpl(fn, this, comparator);
                         (behind as any)[propName] = val;
                     }
                     return val.run();
