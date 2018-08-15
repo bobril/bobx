@@ -1,14 +1,4 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 var b = require("bobril");
 function equalsIncludingNaN(a, b) {
@@ -356,6 +346,7 @@ var ObservableArray = /** @class */ (function (_super) {
         return _this;
     }
     ObservableArray.prototype.splice = function (index, deleteCount, newItems) {
+        var _a;
         var length = this.$bobx.length;
         if (index === undefined)
             index = 0;
@@ -378,7 +369,6 @@ var ObservableArray = /** @class */ (function (_super) {
             newItems[i] = this.$enhancer(newItems[i], undefined);
         }
         return (_a = this.$bobx).splice.apply(_a, [index, deleteCount].concat(newItems));
-        var _a;
     };
     ObservableArray.prototype.setArrayLength = function (newLength) {
         var currentLength = this.$bobx.length;
@@ -910,6 +900,10 @@ b.addRoot(function (root) {
 var updateNextFrameList = [];
 exports.maxIterations = 100;
 var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
+    frameStart = b.now();
+    alreadyInterrupted = false;
+    outsideOfComputedPartialResults = false;
+    firstInterruptibleCtx = undefined;
     var iteration = 0;
     while (iteration++ < exports.maxIterations) {
         var list = updateNextFrameList;
@@ -925,8 +919,8 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
     }
     previousReallyBeforeFrame();
 });
-var Computed = /** @class */ (function () {
-    function Computed(fn, that, comparator) {
+var ComputedImpl = /** @class */ (function () {
+    function ComputedImpl(fn, that, comparator) {
         this.atomId = allocId();
         this.$bobx = null;
         this.fn = fn;
@@ -938,8 +932,9 @@ var Computed = /** @class */ (function () {
         this.comparator = comparator;
         this.using = undefined;
         this.usedBy = undefined;
+        this.partialResults = false;
     }
-    Computed.prototype.markUsing = function (atomId, atom) {
+    ComputedImpl.prototype.markUsing = function (atomId, atom) {
         var using = this.using;
         if (using === undefined) {
             using = new Map();
@@ -952,7 +947,7 @@ var Computed = /** @class */ (function () {
         using.set(atomId, atom);
         return true;
     };
-    Computed.prototype.invalidateBy = function (atomId) {
+    ComputedImpl.prototype.invalidateBy = function (atomId) {
         var using = this.using;
         if (using === undefined)
             return;
@@ -976,7 +971,7 @@ var Computed = /** @class */ (function () {
             }
         }
     };
-    Computed.prototype.markUsage = function () {
+    ComputedImpl.prototype.markUsage = function () {
         var ctx = b.getCurrentCtx();
         if (ctx === undefined)
             // outside of render => nothing to mark
@@ -1007,7 +1002,7 @@ var Computed = /** @class */ (function () {
             this.ctxs.set(bobx.ctxId, ctx);
         }
     };
-    Computed.prototype.invalidate = function () {
+    ComputedImpl.prototype.invalidate = function () {
         var ctxs = this.ctxs;
         if (ctxs === undefined)
             return;
@@ -1017,13 +1012,18 @@ var Computed = /** @class */ (function () {
         }, this);
         ctxs.clear();
     };
-    Computed.prototype.updateIfNeeded = function () {
+    ComputedImpl.prototype.updateIfNeeded = function () {
         if (this.state === 1 /* NeedRecheck */)
             this.update();
     };
-    Computed.prototype.update = function () {
+    ComputedImpl.prototype.update = function () {
+        if (alreadyInterrupted && this.partialResults) {
+            setPartialResults();
+            return;
+        }
         var backupCurrentCtx = b.getCurrentCtx();
         b.setCurrentCtx(this);
+        this.partialResults = false;
         var isFirst = this.state === 0 /* First */;
         this.state = 2 /* Updating */;
         try {
@@ -1042,10 +1042,16 @@ var Computed = /** @class */ (function () {
         }
         if (!isFirst)
             this.invalidate();
+        if (alreadyInterrupted)
+            this.partialResults = true;
         this.state = 3 /* Updated */;
         b.setCurrentCtx(backupCurrentCtx);
+        if (this.partialResults) {
+            this.state = 1 /* NeedRecheck */;
+            setPartialResults();
+        }
     };
-    Computed.prototype.run = function () {
+    ComputedImpl.prototype.run = function () {
         if (this.state === 2 /* Updating */) {
             throw new Error("Recursively calling computed value");
         }
@@ -1057,8 +1063,9 @@ var Computed = /** @class */ (function () {
             throw this.exception;
         return this.value;
     };
-    return Computed;
+    return ComputedImpl;
 }());
+exports.ComputedImpl = ComputedImpl;
 function buildComputed(comparator) {
     return function (target, propName, descriptor) {
         initObservableClassPrototype(target);
@@ -1071,7 +1078,7 @@ function buildComputed(comparator) {
                     var val = this.$bobx[propName];
                     if (val === undefined) {
                         var behind = asObservableClass(this);
-                        val = new Computed(fn_1, this, comparator);
+                        val = new ComputedImpl(fn_1, this, comparator);
                         behind[propName] = val;
                     }
                     return val.run();
@@ -1088,7 +1095,7 @@ function buildComputed(comparator) {
                     var val = this.$bobx[propName];
                     if (val === undefined) {
                         var behind = asObservableClass(this);
-                        val = new Computed(fn_2, this, comparator);
+                        val = new ComputedImpl(fn_2, this, comparator);
                         behind[propName] = val;
                     }
                     return val.run();
@@ -1129,3 +1136,60 @@ function observableProp(obj, key) {
     return val.prop();
 }
 exports.observableProp = observableProp;
+var frameStart = b.now();
+var outsideOfComputedPartialResults = false;
+var alreadyInterrupted = false;
+var firstInterruptibleCtx;
+var haveTimeBudget = function () { return b.now() - frameStart < 10; }; // Spend only first 10ms from each frame in computed methods.
+function resetGotPartialResults() {
+    var ctx = b.getCurrentCtx();
+    if (ctx !== undefined && isIBobxComputed(ctx)) {
+        throw new Error("resetGotPartialResults cannot be called from computed method");
+    }
+    outsideOfComputedPartialResults = false;
+}
+exports.resetGotPartialResults = resetGotPartialResults;
+function setPartialResults() {
+    var ctx = b.getCurrentCtx();
+    if (ctx !== undefined) {
+        if (isIBobxComputed(ctx)) {
+            ctx.partialResults = true;
+        }
+        else {
+            b.invalidate(ctx);
+        }
+    }
+    outsideOfComputedPartialResults = true;
+}
+function gotPartialResults() {
+    var ctx = b.getCurrentCtx();
+    if (ctx !== undefined && isIBobxComputed(ctx)) {
+        return ctx.partialResults;
+    }
+    return outsideOfComputedPartialResults;
+}
+exports.gotPartialResults = gotPartialResults;
+function interrupted() {
+    if (alreadyInterrupted)
+        return true;
+    var ctx = b.getCurrentCtx();
+    if (firstInterruptibleCtx === undefined)
+        firstInterruptibleCtx = ctx;
+    if (gotPartialResults()) {
+        return true;
+    }
+    if (!haveTimeBudget()) {
+        if (ctx === firstInterruptibleCtx) {
+            return false;
+        }
+        if (ctx !== undefined && !isIBobxComputed(ctx)) {
+            b.invalidate(ctx);
+        }
+        alreadyInterrupted = true;
+        firstInterruptibleCtx = undefined;
+        return true;
+    }
+    return false;
+}
+exports.interrupted = interrupted;
+//# sourceMappingURL=index.js.map

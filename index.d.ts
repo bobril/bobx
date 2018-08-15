@@ -1,4 +1,4 @@
-import * as b from 'bobril';
+import * as b from "bobril";
 export declare type AtomId = number;
 export declare type CtxId = number;
 export interface IBobXInCtx extends IMap<AtomId, IAtom> {
@@ -15,6 +15,7 @@ export interface IAtom extends IObservable {
 }
 export interface IBobxComputed extends IAtom {
     $bobx: null;
+    partialResults: boolean;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
     invalidateBy(atomId: AtomId): void;
     update(): void;
@@ -80,7 +81,7 @@ export declare class ObservableArray<T> extends StubArray {
     reverse(): T[];
     sort(_compareFn?: (a: T, b: T) => number): T[];
     remove(value: T): boolean;
-    private checkIndex(index);
+    private checkIndex;
     move(fromIndex: number, toIndex: number): void;
     toString(): string;
 }
@@ -146,6 +147,34 @@ export declare var observable: IObservableFactory & IObservableFactories & {
 };
 export declare let maxIterations: number;
 export declare type IEqualsComparer<T> = (o: T, n: T) => boolean;
+declare const enum ComputedState {
+    First = 0,
+    NeedRecheck = 1,
+    Updating = 2,
+    Updated = 3
+}
+export declare class ComputedImpl implements IBobxComputed {
+    fn: Function;
+    that: any;
+    atomId: AtomId;
+    $bobx: null;
+    value: any;
+    exception: any;
+    state: ComputedState;
+    partialResults: boolean;
+    comparator: IEqualsComparer<any>;
+    usedBy: Map<AtomId, IBobxComputed> | undefined;
+    ctxs: Map<CtxId, IBobXBobrilCtx> | undefined;
+    using: Map<AtomId, IAtom> | undefined;
+    markUsing(atomId: AtomId, atom: IAtom): boolean;
+    invalidateBy(atomId: AtomId): void;
+    constructor(fn: Function, that: any, comparator: IEqualsComparer<any>);
+    markUsage(): void;
+    invalidate(): void;
+    updateIfNeeded(): void;
+    update(): void;
+    run(): any;
+}
 export interface IComputedFactory {
     (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;
     struct: (target: any, propName: string, descriptor: PropertyDescriptor) => TypedPropertyDescriptor<any>;
@@ -154,3 +183,7 @@ export interface IComputedFactory {
 export declare var computed: IComputedFactory;
 export declare function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export declare function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
+export declare function resetGotPartialResults(): void;
+export declare function gotPartialResults(): boolean;
+export declare function interrupted(): boolean;
+export {};
