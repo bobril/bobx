@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.14.0
+
+New feature of interruptible computed and Bobril render functions after spending 10ms budget. This not just reimplementation of Mobx anymore.
+Exported ComputedImpl class for low level reimplementation of computed.
+
 ## 0.13.2
 
 Fixed bug with not expanding ObservableArray getters and setters when Array is constructed.

@@ -1047,6 +1047,9 @@ export let maxIterations = 100;
 
 const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     frameStart = b.now();
+    alreadyInterrupted = false;
+    outsideOfComputedPartialResults = false;
+    firstInterruptibleCtx = undefined;
     let iteration = 0;
     while (iteration++ < maxIterations) {
         let list = updateNextFrameList;
@@ -1209,7 +1212,10 @@ export class ComputedImpl implements IBobxComputed {
         if (alreadyInterrupted) this.partialResults = true;
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
-        if (this.partialResults) setPartialResults();
+        if (this.partialResults) {
+            this.state = ComputedState.NeedRecheck;
+            setPartialResults();
+        }
     }
 
     run() {
@@ -1305,6 +1311,8 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
 var frameStart = b.now();
 var outsideOfComputedPartialResults = false;
 var alreadyInterrupted = false;
+var firstInterruptibleCtx: IBobxCallerCtx | undefined;
+
 var haveTimeBudget: () => boolean = () => b.now() - frameStart < 10; // Spend only first 10ms from each frame in computed methods.
 
 export function resetGotPartialResults() {
@@ -1317,8 +1325,12 @@ export function resetGotPartialResults() {
 
 function setPartialResults(): void {
     const ctx = b.getCurrentCtx() as IBobxCallerCtx;
-    if (ctx !== undefined && isIBobxComputed(ctx)) {
-        ctx.partialResults = true;
+    if (ctx !== undefined) {
+        if (isIBobxComputed(ctx)) {
+            ctx.partialResults = true;
+        } else {
+            b.invalidate(ctx);
+        }
     }
     outsideOfComputedPartialResults = true;
 }
@@ -1333,11 +1345,20 @@ export function gotPartialResults(): boolean {
 
 export function interrupted(): boolean {
     if (alreadyInterrupted) return true;
+    const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+    if (firstInterruptibleCtx === undefined) firstInterruptibleCtx = ctx;
     if (gotPartialResults()) {
         return true;
     }
     if (!haveTimeBudget()) {
+        if (ctx === firstInterruptibleCtx) {
+            return false;
+        }
+        if (ctx !== undefined && !isIBobxComputed(ctx)) {
+            b.invalidate(ctx);
+        }
         alreadyInterrupted = true;
+        firstInterruptibleCtx = undefined;
         return true;
     }
     return false;
