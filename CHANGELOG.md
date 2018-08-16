@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.15.0
+
+Allow Bobril to use ObservableArrays in Vdom. Improved interruptible feature.
+
 ## 0.14.0
 
 New feature of interruptible computed and Bobril render functions after spending 10ms budget. This not just reimplementation of Mobx anymore.

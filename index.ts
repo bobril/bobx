@@ -177,6 +177,7 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
 let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.RenderPhase) => {
     const ctx = b.getCurrentCtx() as IBobXBobrilCtx;
     if (phase === b.RenderPhase.Destroy || phase === b.RenderPhase.Update || phase === b.RenderPhase.LocalUpdate) {
+        outsideOfComputedPartialResults = false;
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             bobx.forEach(function(this: IBobXInCtx, value: IAtom) {
@@ -240,8 +241,8 @@ export function deepEqual(a: any, b: any): boolean {
         if (!isArrayLike(b)) return false;
         const length = a.length;
         if (length != b.length) return false;
-        const aArray = a.$bobx || a;
-        const bArray = b.$bobx || b;
+        const aArray = (a as any).$bobx || a;
+        const bArray = (b as any).$bobx || b;
         for (let i = 0; i < length; i++) {
             if (!deepEqual(aArray[i], bArray[i])) return false;
         }
@@ -697,9 +698,11 @@ export function isObservableArray(thing: any): thing is IObservableArray<any> {
     return isObject(thing) && b.isArray(thing.$bobx);
 }
 
-function isArrayLike(thing: any) {
+function isArrayLike(thing: any): thing is any[] {
     return b.isArray(thing) || isObservableArray(thing);
 }
+
+b.setIsArrayVdom(isArrayLike);
 
 const ObservableMapMarker = 0;
 
@@ -852,7 +855,7 @@ function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue) return oldValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue, deepEnhancer) as any;
+    if (b.isArray(newValue)) return new ObservableArray(newValue as any, deepEnhancer) as any;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
@@ -869,7 +872,7 @@ function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue) return oldValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue, referenceEnhancer) as any;
+    if (b.isArray(newValue)) return new ObservableArray(newValue as any, referenceEnhancer) as any;
     if (isES6Map(newValue)) return new ObservableMap(newValue, referenceEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
@@ -886,7 +889,7 @@ function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (deepEqual(newValue, oldValue)) return oldValue!;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue, deepStructEnhancer) as any;
+    if (b.isArray(newValue)) return new ObservableArray(newValue as any, deepStructEnhancer) as any;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepStructEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));

@@ -1,5 +1,5 @@
 import * as b from "bobril";
-import { interrupted, computed, resetGotPartialResults, gotPartialResults } from "../index";
+import { interrupted, computed, gotPartialResults } from "../index";
 
 function sleep(timeInMs: number) {
     const start = b.now();
@@ -41,7 +41,6 @@ describe("Interruption", () => {
         const Comp = b.createComponent({
             ctxClass: CompCtx,
             render(ctx: CompCtx) {
-                resetGotPartialResults();
                 ctx.calc1();
                 expect(gotPartialResults()).toBeFalsy();
                 ctx.calc2();
