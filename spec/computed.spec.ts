@@ -1,10 +1,11 @@
-import * as b from 'bobril';
+import * as b from "bobril";
 import { computed, observable } from "../index";
 
 describe("calculated", () => {
     it("simple function returning constant", () => {
         class C1 {
-            @computed f1() {
+            @computed
+            f1() {
                 return 42;
             }
         }
@@ -14,7 +15,8 @@ describe("calculated", () => {
 
     it("usable as getter", () => {
         class C1g {
-            @computed get p() {
+            @computed
+            get p() {
                 return 42;
             }
         }
@@ -25,7 +27,8 @@ describe("calculated", () => {
     it("usable also with setter", () => {
         let vv = 0;
         class C1g {
-            @computed get p() {
+            @computed
+            get p() {
                 return 42;
             }
             set p(v: number) {
@@ -40,8 +43,10 @@ describe("calculated", () => {
 
     let computedCallCount = 0;
     class C2 {
-        @observable v = 0;
-        @computed f() {
+        @observable
+        v = 0;
+        @computed
+        f() {
             computedCallCount++;
             return this.v + 1;
         }
@@ -91,13 +96,16 @@ describe("calculated", () => {
     it("compare comparers", () => {
         let v = observable(0);
         class C {
-            @computed f(): { a: number } {
+            @computed
+            f(): { a: number } {
                 return { a: v.get() % 4 };
             }
-            @computed.struct fs(): { a: number } {
+            @computed.struct
+            fs(): { a: number } {
                 return { a: v.get() % 4 };
             }
-            @computed.equals<{ a: number }>((o, n) => o.a % 2 == n.a % 2) fe(): { a: number } {
+            @computed.equals<{ a: number }>((o, n) => o.a % 2 == n.a % 2)
+            fe(): { a: number } {
                 return { a: v.get() % 4 };
             }
         }
@@ -132,5 +140,28 @@ describe("calculated", () => {
         b.removeRoot(rootId2);
         b.removeRoot(rootId3);
         b.syncUpdate();
-    })
+    });
+
+    it("super computed calls works", () => {
+        class Base {
+            @observable
+            p: number = 0;
+            @computed
+            m() {
+                return this.p + 1;
+            }
+        }
+
+        class Derived extends Base {
+            @computed
+            m() {
+                return super.m() + 1;
+            }
+        }
+
+        let i = new Derived();
+        expect(i.m()).toBe(2);
+        i.p = 10;
+        expect(i.m()).toBe(12);
+    });
 });

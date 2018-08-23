@@ -915,9 +915,18 @@ const deepStructDecorator = createDecoratorForEnhancer(deepStructEnhancer);
 const refStructDecorator = createDecoratorForEnhancer(refStructEnhancer);
 
 const LazyClass = {};
+const $atomId = "$atomId";
 
 export function initObservableClassPrototype(target: any) {
     // target is actually prototype not instance
+    if (Object.getOwnPropertyDescriptor(target.constructor, $atomId) === undefined) {
+        Object.defineProperty(target.constructor, $atomId, {
+            enumerable: false,
+            writable: false,
+            configurable: false,
+            value: allocId()
+        });
+    }
     if (!("$bobx" in target)) {
         Object.defineProperty(target, "$bobx", {
             enumerable: false,
@@ -1245,6 +1254,7 @@ export interface IComputedFactory {
 function buildComputed<T>(comparator: IEqualsComparer<T>) {
     return (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any> => {
         initObservableClassPrototype(target);
+        propName = propName + "\t" + target.constructor[$atomId];
         if (descriptor.get != undefined) {
             const fn = descriptor.get;
             return {

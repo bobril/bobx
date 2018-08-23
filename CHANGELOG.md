@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.16.0
+
+Support overriding computed methods which call super.themself.
+
 ## 0.15.0
 
 Allow Bobril to use ObservableArrays in Vdom. Improved interruptible feature.
