@@ -14,12 +14,15 @@ export interface IAtom extends IObservable {
     atomId: AtomId;
 }
 export interface IBobxComputed extends IAtom {
-    $bobx: null;
+    $bobx: 1;
     partialResults: boolean;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
+    unmarkUsedBy(atomId: AtomId): void;
+    unmarkCtx(ctxId: AtomId): void;
     invalidateBy(atomId: AtomId): void;
     update(): void;
     updateIfNeeded(): void;
+    buryIfDead(): void;
 }
 export declare type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
 export declare type IEnhancer<T> = (newValue: T, curValue: T | undefined) => T;
@@ -151,13 +154,14 @@ declare const enum ComputedState {
     First = 0,
     NeedRecheck = 1,
     Updating = 2,
-    Updated = 3
+    Updated = 3,
+    Scope = 4
 }
 export declare class ComputedImpl implements IBobxComputed {
     fn: Function;
     that: any;
     atomId: AtomId;
-    $bobx: null;
+    $bobx: 1;
     value: any;
     exception: any;
     state: ComputedState;
@@ -168,7 +172,11 @@ export declare class ComputedImpl implements IBobxComputed {
     using: Map<AtomId, IAtom> | undefined;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
     invalidateBy(atomId: AtomId): void;
+    freeUsings(): void;
+    buryIfDead(): void;
     constructor(fn: Function, that: any, comparator: IEqualsComparer<any>);
+    unmarkUsedBy(atomId: AtomId): void;
+    unmarkCtx(ctxId: AtomId): void;
     markUsage(): void;
     invalidate(): void;
     updateIfNeeded(): void;
@@ -186,4 +194,5 @@ export declare function observableProp<T, K extends keyof T>(obj: T, key: K): b.
 export declare function resetGotPartialResults(): void;
 export declare function gotPartialResults(): boolean;
 export declare function interrupted(): boolean;
+export declare function reactiveScope(scope: () => void): void;
 export {};

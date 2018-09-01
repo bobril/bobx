@@ -1097,7 +1097,8 @@ const enum ComputedState {
     First,
     NeedRecheck,
     Updating,
-    Updated
+    Updated,
+    Scope
 }
 
 export class ComputedImpl implements IBobxComputed {
@@ -1134,21 +1135,23 @@ export class ComputedImpl implements IBobxComputed {
         let using = this.using;
         if (using === undefined) return;
         if (using.delete(atomId)) {
-            if (this.state === ComputedState.Updating) {
-                throw new Error("Modifying inputs during updating computed");
-            }
-            if (this.state === ComputedState.Updated) {
-                this.state = ComputedState.NeedRecheck;
-                let usedBy = this.usedBy;
-                if (usedBy !== undefined) {
-                    this.usedBy = undefined;
-                    usedBy.forEach(function(this: ComputedImpl, comp: IBobxComputed) {
-                        comp.invalidateBy(this.atomId);
-                    }, this);
+            if (this.state !== ComputedState.Scope) {
+                if (this.state === ComputedState.Updating) {
+                    throw new Error("Modifying inputs during updating computed");
                 }
-                if (this.ctxs !== undefined) {
-                    updateNextFrameList.push(this);
-                    b.invalidate(bobxRootCtx);
+                if (this.state === ComputedState.Updated) {
+                    this.state = ComputedState.NeedRecheck;
+                    let usedBy = this.usedBy;
+                    if (usedBy !== undefined) {
+                        this.usedBy = undefined;
+                        usedBy.forEach(function(this: ComputedImpl, comp: IBobxComputed) {
+                            comp.invalidateBy(this.atomId);
+                        }, this);
+                    }
+                    if (this.ctxs !== undefined) {
+                        updateNextFrameList.push(this);
+                        b.invalidate(bobxRootCtx);
+                    }
                 }
             }
             this.freeUsings();
@@ -1276,7 +1279,6 @@ export class ComputedImpl implements IBobxComputed {
         if (alreadyInterrupted) this.partialResults = true;
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
-        //if (backupCurrentCtx === undefined) this.buryIfDead();
         if (this.partialResults) {
             this.state = ComputedState.NeedRecheck;
             setPartialResults();
@@ -1290,6 +1292,9 @@ export class ComputedImpl implements IBobxComputed {
         this.markUsage();
         if (this.state !== ComputedState.Updated) {
             this.update();
+            if (b.getCurrentCtx() === undefined) {
+                this.buryIfDead();
+            }
         }
         if (this.exception !== undefined) throw this.exception;
         return this.value;
@@ -1430,4 +1435,18 @@ export function interrupted(): boolean {
         return true;
     }
     return false;
+}
+
+export function reactiveScope(scope: () => void) {
+    let computed = new ComputedImpl(
+        () => {
+            computed.state = ComputedState.Scope;
+            scope();
+        },
+        undefined,
+        equalsIncludingNaN
+    );
+    computed.update();
+    computed.buryIfDead();
+    if (computed.exception !== undefined) throw computed.exception;
 }

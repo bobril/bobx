@@ -30,7 +30,7 @@ function allocId() {
     return ++lastId;
 }
 function isIBobxComputed(v) {
-    return v.$bobx === null;
+    return v.$bobx === ComputedMarker;
 }
 var ObservableValue = /** @class */ (function () {
     function ObservableValue(value, enhancer) {
@@ -122,10 +122,16 @@ exports.ObservableValue = ObservableValue;
 var previousBeforeRender = b.setBeforeRender(function (node, phase) {
     var ctx = b.getCurrentCtx();
     if (phase === 3 /* Destroy */ || phase === 1 /* Update */ || phase === 2 /* LocalUpdate */) {
+        outsideOfComputedPartialResults = false;
         var bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             bobx.forEach(function (value) {
-                value.ctxs.delete(this.ctxId);
+                if (isIBobxComputed(value)) {
+                    value.unmarkCtx(this.ctxId);
+                }
+                else {
+                    value.ctxs.delete(this.ctxId);
+                }
             }, bobx);
             if (phase === 3 /* Destroy */) {
                 ctx.$bobxCtx = undefined;
@@ -626,7 +632,9 @@ exports.isObservableArray = isObservableArray;
 function isArrayLike(thing) {
     return b.isArray(thing) || isObservableArray(thing);
 }
+b.setIsArrayVdom(isArrayLike);
 var ObservableMapMarker = 0;
+var ComputedMarker = 1;
 function isObservableMap(thing) {
     return isObject(thing) && thing.$bobx === ObservableMapMarker;
 }
@@ -820,8 +828,17 @@ var refDecorator = createDecoratorForEnhancer(referenceEnhancer);
 var deepStructDecorator = createDecoratorForEnhancer(deepStructEnhancer);
 var refStructDecorator = createDecoratorForEnhancer(refStructEnhancer);
 var LazyClass = {};
+var $atomId = "$atomId";
 function initObservableClassPrototype(target) {
     // target is actually prototype not instance
+    if (Object.getOwnPropertyDescriptor(target.constructor, $atomId) === undefined) {
+        Object.defineProperty(target.constructor, $atomId, {
+            enumerable: false,
+            writable: false,
+            configurable: false,
+            value: allocId()
+        });
+    }
     if (!("$bobx" in target)) {
         Object.defineProperty(target, "$bobx", {
             enumerable: false,
@@ -897,6 +914,7 @@ b.addRoot(function (root) {
     bobxRootCtx = root.n;
     return undefined;
 });
+var buryDeadSet = new Set();
 var updateNextFrameList = [];
 exports.maxIterations = 100;
 var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
@@ -904,6 +922,12 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
     alreadyInterrupted = false;
     outsideOfComputedPartialResults = false;
     firstInterruptibleCtx = undefined;
+    if (buryDeadSet.size > 0) {
+        buryDeadSet.forEach(function (v) {
+            v.buryIfDead();
+        });
+        buryDeadSet.clear();
+    }
     var iteration = 0;
     while (iteration++ < exports.maxIterations) {
         var list = updateNextFrameList;
@@ -922,7 +946,6 @@ var previousReallyBeforeFrame = b.setReallyBeforeFrame(function () {
 var ComputedImpl = /** @class */ (function () {
     function ComputedImpl(fn, that, comparator) {
         this.atomId = allocId();
-        this.$bobx = null;
         this.fn = fn;
         this.that = that;
         this.ctxs = undefined;
@@ -952,23 +975,61 @@ var ComputedImpl = /** @class */ (function () {
         if (using === undefined)
             return;
         if (using.delete(atomId)) {
-            if (this.state === 2 /* Updating */) {
-                throw new Error("Modifying inputs during updating computed");
-            }
-            if (this.state === 3 /* Updated */) {
-                this.state = 1 /* NeedRecheck */;
-                var usedBy = this.usedBy;
-                if (usedBy !== undefined) {
-                    this.usedBy = undefined;
-                    usedBy.forEach(function (comp) {
-                        comp.invalidateBy(this.atomId);
-                    }, this);
+            if (this.state !== 4 /* Scope */) {
+                if (this.state === 2 /* Updating */) {
+                    throw new Error("Modifying inputs during updating computed");
                 }
-                if (this.ctxs !== undefined) {
-                    updateNextFrameList.push(this);
-                    b.invalidate(bobxRootCtx);
+                if (this.state === 3 /* Updated */) {
+                    this.state = 1 /* NeedRecheck */;
+                    var usedBy = this.usedBy;
+                    if (usedBy !== undefined) {
+                        this.usedBy = undefined;
+                        usedBy.forEach(function (comp) {
+                            comp.invalidateBy(this.atomId);
+                        }, this);
+                    }
+                    if (this.ctxs !== undefined) {
+                        updateNextFrameList.push(this);
+                        b.invalidate(bobxRootCtx);
+                    }
                 }
             }
+            this.freeUsings();
+        }
+    };
+    ComputedImpl.prototype.freeUsings = function () {
+        var _this = this;
+        var using = this.using;
+        if (using !== undefined) {
+            this.using = undefined;
+            using.forEach(function (v) {
+                if (isIBobxComputed(v)) {
+                    v.unmarkUsedBy(_this.atomId);
+                }
+                else {
+                    v.ctxs.delete(_this.atomId);
+                }
+            });
+        }
+    };
+    ComputedImpl.prototype.buryIfDead = function () {
+        if ((this.usedBy !== undefined && this.usedBy.size > 0) || (this.ctxs !== undefined && this.ctxs.size > 0)) {
+            return;
+        }
+        buryDeadSet.delete(this);
+        this.state = 0 /* First */;
+        this.freeUsings();
+    };
+    ComputedImpl.prototype.unmarkUsedBy = function (atomId) {
+        this.usedBy.delete(atomId);
+        if (this.usedBy.size === 0 && (this.ctxs === undefined || this.ctxs.size === 0)) {
+            buryDeadSet.add(this);
+        }
+    };
+    ComputedImpl.prototype.unmarkCtx = function (ctxId) {
+        this.ctxs.delete(ctxId);
+        if (this.ctxs.size === 0 && (this.usedBy === undefined || this.usedBy.size === 0)) {
+            buryDeadSet.add(this);
         }
     };
     ComputedImpl.prototype.markUsage = function () {
@@ -1058,6 +1119,9 @@ var ComputedImpl = /** @class */ (function () {
         this.markUsage();
         if (this.state !== 3 /* Updated */) {
             this.update();
+            if (b.getCurrentCtx() === undefined) {
+                this.buryIfDead();
+            }
         }
         if (this.exception !== undefined)
             throw this.exception;
@@ -1066,9 +1130,11 @@ var ComputedImpl = /** @class */ (function () {
     return ComputedImpl;
 }());
 exports.ComputedImpl = ComputedImpl;
+addHiddenFinalProp(ComputedImpl.prototype, "$bobx", ComputedMarker);
 function buildComputed(comparator) {
     return function (target, propName, descriptor) {
         initObservableClassPrototype(target);
+        propName = propName + "\t" + target.constructor[$atomId];
         if (descriptor.get != undefined) {
             var fn_1 = descriptor.get;
             return {
@@ -1192,4 +1258,15 @@ function interrupted() {
     return false;
 }
 exports.interrupted = interrupted;
+function reactiveScope(scope) {
+    var computed = new ComputedImpl(function () {
+        computed.state = 4 /* Scope */;
+        scope();
+    }, undefined, equalsIncludingNaN);
+    computed.update();
+    computed.buryIfDead();
+    if (computed.exception !== undefined)
+        throw computed.exception;
+}
+exports.reactiveScope = reactiveScope;
 //# sourceMappingURL=index.js.map

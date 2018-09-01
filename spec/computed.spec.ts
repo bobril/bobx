@@ -1,5 +1,5 @@
 import * as b from "bobril";
-import { computed, observable } from "../index";
+import { computed, observable, reactiveScope } from "../index";
 
 describe("computed", () => {
     it("simple function returning constant", () => {
@@ -55,15 +55,17 @@ describe("computed", () => {
     it("dependent on observable value", () => {
         computedCallCount = 0;
         let c = new C2();
-        expect(computedCallCount).toBe(0);
-        expect(c.f()).toBe(1);
-        expect(computedCallCount).toBe(1);
-        expect(c.f()).toBe(1);
-        expect(computedCallCount).toBe(1); // check that it memorize result
-        c.v = 1;
-        expect(computedCallCount).toBe(1); // check that computed is lazy
-        expect(c.f()).toBe(2);
-        expect(computedCallCount).toBe(2);
+        reactiveScope(() => {
+            expect(computedCallCount).toBe(0);
+            expect(c.f()).toBe(1);
+            expect(computedCallCount).toBe(1);
+            expect(c.f()).toBe(1);
+            expect(computedCallCount).toBe(1); // check that it memorize result
+            c.v = 1;
+            expect(computedCallCount).toBe(1); // check that computed is lazy
+            expect(c.f()).toBe(2);
+            expect(computedCallCount).toBe(2);
+        });
     });
 
     it("used in render", () => {
@@ -176,19 +178,19 @@ describe("computed", () => {
             }
         }
         let c = new C();
-        b.init(()=>c.f());
+        b.init(() => c.f());
         b.syncUpdate();
         expect(computedCalls).toBe(1);
         v.set(1);
         b.syncUpdate();
         expect(computedCalls).toBe(2);
-        b.init(()=>undefined);
+        b.init(() => undefined);
         b.syncUpdate();
         expect(computedCalls).toBe(2);
-        b.init(()=>c.f());
+        b.init(() => c.f());
         b.syncUpdate();
         expect(computedCalls).toBe(3);
-        b.init(()=>undefined);
+        b.init(() => undefined);
         b.syncUpdate();
     });
 });
