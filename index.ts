@@ -49,12 +49,15 @@ export interface IAtom extends IObservable {
 }
 
 export interface IBobxComputed extends IAtom {
-    $bobx: null;
+    $bobx: 1;
     partialResults: boolean;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
+    unmarkUsedBy(atomId: AtomId): void;
+    unmarkCtx(ctxId: AtomId): void;
     invalidateBy(atomId: AtomId): void;
     update(): void;
     updateIfNeeded(): void;
+    buryIfDead(): void;
 }
 
 export type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
@@ -73,8 +76,8 @@ function allocId(): AtomId & CtxId {
     return ++lastId;
 }
 
-function isIBobxComputed(v: IBobxCallerCtx): v is IBobxComputed {
-    return (v as IBobxComputed).$bobx === null;
+function isIBobxComputed(v: IBobxCallerCtx | IObservable): v is IBobxComputed {
+    return (v as IBobxComputed).$bobx === ComputedMarker;
 }
 
 export class ObservableValue<T> implements IObservableValue<T>, IAtom {
@@ -181,7 +184,11 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
             bobx.forEach(function(this: IBobXInCtx, value: IAtom) {
-                (value as ObservableValue<any>).ctxs!.delete(this.ctxId!);
+                if (isIBobxComputed(value)) {
+                    value.unmarkCtx(this.ctxId!);
+                } else {
+                    (value as ObservableValue<any>).ctxs!.delete(this.ctxId!);
+                }
             }, bobx);
             if (phase === b.RenderPhase.Destroy) {
                 ctx.$bobxCtx = undefined;
@@ -705,6 +712,7 @@ function isArrayLike(thing: any): thing is any[] {
 b.setIsArrayVdom(isArrayLike);
 
 const ObservableMapMarker = 0;
+const ComputedMarker = 1;
 
 export function isObservableMap(thing: any): thing is IObservableMap<any, any> {
     return isObject(thing) && thing.$bobx === ObservableMapMarker;
@@ -741,7 +749,7 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
         this.$atom.markUsage();
         return this._size;
     }
-    $bobx: 0 | undefined;
+    $bobx!: 0;
     $enhancer: IEnhancer<V>;
     $atom: ObservableValue<any>;
     $content: IMap<K, ObservableValue<V>>;
@@ -1053,6 +1061,7 @@ b.addRoot(root => {
     return undefined;
 });
 
+let buryDeadSet: Set<IBobxComputed> = new Set();
 let updateNextFrameList: IBobxComputed[] = [];
 
 export let maxIterations = 100;
@@ -1062,6 +1071,12 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     alreadyInterrupted = false;
     outsideOfComputedPartialResults = false;
     firstInterruptibleCtx = undefined;
+    if (buryDeadSet.size > 0) {
+        buryDeadSet.forEach(v => {
+            v.buryIfDead();
+        });
+        buryDeadSet.clear();
+    }
     let iteration = 0;
     while (iteration++ < maxIterations) {
         let list = updateNextFrameList;
@@ -1089,7 +1104,7 @@ export class ComputedImpl implements IBobxComputed {
     fn: Function;
     that: any;
     atomId: AtomId;
-    $bobx: null;
+    $bobx!: 1;
     value: any;
     exception: any;
     state: ComputedState;
@@ -1136,12 +1151,35 @@ export class ComputedImpl implements IBobxComputed {
                     b.invalidate(bobxRootCtx);
                 }
             }
+            this.freeUsings();
         }
+    }
+
+    freeUsings() {
+        let using = this.using;
+        if (using !== undefined) {
+            this.using = undefined;
+            using.forEach(v => {
+                if (isIBobxComputed(v)) {
+                    v.unmarkUsedBy(this.atomId);
+                } else {
+                    (v as ObservableValue<any>).ctxs!.delete(this.atomId);
+                }
+            });
+        }
+    }
+
+    buryIfDead(): void {
+        if ((this.usedBy !== undefined && this.usedBy.size > 0) || (this.ctxs !== undefined && this.ctxs.size > 0)) {
+            return;
+        }
+        buryDeadSet.delete(this);
+        this.state = ComputedState.First;
+        this.freeUsings();
     }
 
     constructor(fn: Function, that: any, comparator: IEqualsComparer<any>) {
         this.atomId = allocId();
-        this.$bobx = null;
         this.fn = fn;
         this.that = that;
         this.ctxs = undefined;
@@ -1152,6 +1190,20 @@ export class ComputedImpl implements IBobxComputed {
         this.using = undefined;
         this.usedBy = undefined;
         this.partialResults = false;
+    }
+
+    unmarkUsedBy(atomId: AtomId): void {
+        this.usedBy!.delete(atomId);
+        if (this.usedBy!.size === 0 && (this.ctxs === undefined || this.ctxs.size === 0)) {
+            buryDeadSet.add(this);
+        }
+    }
+
+    unmarkCtx(ctxId: AtomId): void {
+        this.ctxs!.delete(ctxId);
+        if (this.ctxs!.size === 0 && (this.usedBy === undefined || this.usedBy.size === 0)) {
+            buryDeadSet.add(this);
+        }
     }
 
     markUsage() {
@@ -1224,6 +1276,7 @@ export class ComputedImpl implements IBobxComputed {
         if (alreadyInterrupted) this.partialResults = true;
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
+        //if (backupCurrentCtx === undefined) this.buryIfDead();
         if (this.partialResults) {
             this.state = ComputedState.NeedRecheck;
             setPartialResults();
@@ -1242,6 +1295,8 @@ export class ComputedImpl implements IBobxComputed {
         return this.value;
     }
 }
+
+addHiddenFinalProp(ComputedImpl.prototype, "$bobx", ComputedMarker);
 
 export interface IComputedFactory {
     (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;

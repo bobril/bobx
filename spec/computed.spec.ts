@@ -1,7 +1,7 @@
 import * as b from "bobril";
 import { computed, observable } from "../index";
 
-describe("calculated", () => {
+describe("computed", () => {
     it("simple function returning constant", () => {
         class C1 {
             @computed
@@ -163,5 +163,32 @@ describe("calculated", () => {
         expect(i.m()).toBe(2);
         i.p = 10;
         expect(i.m()).toBe(12);
+    });
+
+    it("does not leak", () => {
+        let v = observable(0);
+        let computedCalls = 0;
+        class C {
+            @computed
+            f(): number {
+                computedCalls++;
+                return v.get();
+            }
+        }
+        let c = new C();
+        b.init(()=>c.f());
+        b.syncUpdate();
+        expect(computedCalls).toBe(1);
+        v.set(1);
+        b.syncUpdate();
+        expect(computedCalls).toBe(2);
+        b.init(()=>undefined);
+        b.syncUpdate();
+        expect(computedCalls).toBe(2);
+        b.init(()=>c.f());
+        b.syncUpdate();
+        expect(computedCalls).toBe(3);
+        b.init(()=>undefined);
+        b.syncUpdate();
     });
 });

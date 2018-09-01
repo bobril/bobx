@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.17.0
+
+Don't leak dead computed result.
+
 ## 0.16.0
 
 Support overriding computed methods which call super.themself.
