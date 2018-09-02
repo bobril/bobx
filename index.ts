@@ -1093,7 +1093,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
 });
 export type IEqualsComparer<T> = (o: T, n: T) => boolean;
 
-const enum ComputedState {
+export const enum ComputedState {
     First,
     NeedRecheck,
     Updating,
@@ -1385,8 +1385,17 @@ var frameStart = b.now();
 var outsideOfComputedPartialResults = false;
 var alreadyInterrupted = false;
 var firstInterruptibleCtx: IBobxCallerCtx | undefined;
+var timeBudget = 10;
 
-var haveTimeBudget: () => boolean = () => b.now() - frameStart < 10; // Spend only first 10ms from each frame in computed methods.
+export function setTimeBudget(value: number) {
+    timeBudget = value;
+}
+
+export function getTimeBudget(): number {
+    return timeBudget;
+}
+
+var haveTimeBudget: () => boolean = () => b.now() - frameStart < timeBudget; // Spend only first 10ms from each frame in computed methods.
 
 export function resetGotPartialResults() {
     const ctx = b.getCurrentCtx() as IBobxCallerCtx;
@@ -1437,7 +1446,29 @@ export function interrupted(): boolean {
     return false;
 }
 
-export function reactiveScope(scope: () => void) {
+export function computedScope(
+    computed: ComputedImpl,
+    callBuryIfDead: boolean,
+    continueCallback?: () => boolean
+): boolean {
+    let alreadyInterruptedBackup = alreadyInterrupted;
+    let firstInterruptibleCtxBackup = firstInterruptibleCtx;
+    let haveTimeBudgetBackup = haveTimeBudget;
+    if (continueCallback != undefined) {
+        haveTimeBudget = continueCallback;
+        firstInterruptibleCtx = undefined;
+        alreadyInterrupted = false;
+    }
+    computed.update();
+    if (callBuryIfDead) computed.buryIfDead();
+    alreadyInterrupted = alreadyInterruptedBackup;
+    firstInterruptibleCtx = firstInterruptibleCtxBackup;
+    haveTimeBudget = haveTimeBudgetBackup;
+    if (computed.exception !== undefined) throw computed.exception;
+    return computed.partialResults;
+}
+
+export function reactiveScope(scope: () => void, continueCallback?: () => boolean): boolean {
     let computed = new ComputedImpl(
         () => {
             computed.state = ComputedState.Scope;
@@ -1446,7 +1477,5 @@ export function reactiveScope(scope: () => void) {
         undefined,
         equalsIncludingNaN
     );
-    computed.update();
-    computed.buryIfDead();
-    if (computed.exception !== undefined) throw computed.exception;
+    return computedScope(computed, true, continueCallback);
 }

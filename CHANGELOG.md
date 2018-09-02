@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.18.0
+
+Allow customize interrupt timeout.
+
 ## 0.17.0
 
 Don't leak dead computed result.
