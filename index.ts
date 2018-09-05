@@ -1143,10 +1143,10 @@ export class ComputedImpl implements IBobxComputed {
                     this.state = ComputedState.NeedRecheck;
                     let usedBy = this.usedBy;
                     if (usedBy !== undefined) {
-                        this.usedBy = undefined;
                         usedBy.forEach(function(this: ComputedImpl, comp: IBobxComputed) {
                             comp.invalidateBy(this.atomId);
                         }, this);
+                        usedBy.clear();
                     }
                     if (this.ctxs !== undefined) {
                         updateNextFrameList.push(this);

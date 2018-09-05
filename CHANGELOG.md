@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.18.1
+
+Fix hard to reproduce bug.
+
 ## 0.18.0
 
 Allow customize interrupt timeout.
