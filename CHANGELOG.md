@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.19.0
+
+Made npm package lighter by removing .d.ts and .js
+
 ## 0.18.1
 
 Fix hard to reproduce bug.

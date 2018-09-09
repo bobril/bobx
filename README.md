@@ -8,19 +8,17 @@ Changelog: https://github.com/Bobril/BobX/blob/master/CHANGELOG.md
 
 install from npm:
 
-	npm install bobx --save
-
-Danger: It is in very early development.
+    npm install bobx --save
 
 Minimal example:
 
-	import * as b from 'bobril';
-	import { observable } from 'bobx';
+    import * as b from 'bobril';
+    import { observable } from 'bobx';
 
-	const counter = observable(0);
+    const counter = observable(0);
 
-	setInterval(() => {
-		counter.set(counter.get() + 1);
-	}, 2000);
+    setInterval(() => {
+    	counter.set(counter.get() + 1);
+    }, 2000);
 
-	b.init(() => counter.get());
+    b.init(() => counter.get());
