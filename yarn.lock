@@ -10,9 +10,13 @@ bobflux@*:
     fun-model "6.*"
 
 bobril@*:
-  version "8.13.0"
-  resolved "https://registry.yarnpkg.com/bobril/-/bobril-8.13.0.tgz#8450afd8bf636702c1fb91dfad6bbe494c94c671"
+  version "8.15.1"
+  resolved "https://registry.yarnpkg.com/bobril/-/bobril-8.15.1.tgz#8a786b84a268938dea955856ab2c07249b71d59e"
 
 fun-model@6.*:
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-6.3.0.tgz#6c131db6badfc1fdca5a83a98c014c50585e3c15"
+
+typescript@*:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.1.1.tgz#3362ba9dd1e482ebb2355b02dfe8bcd19a2c7c96"

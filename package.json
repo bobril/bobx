@@ -32,6 +32,7 @@
         "bobril": "*"
     },
     "devDependencies": {
-        "bobflux": "*"
+        "bobflux": "*",
+        "typescript": "*"
     }
 }
