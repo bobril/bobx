@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.20.0
+
+Optimizations (around exceptions in computed).
+
 ## 0.19.0
 
 Made npm package lighter by removing .d.ts and .js

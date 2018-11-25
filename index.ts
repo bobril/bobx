@@ -1101,13 +1101,20 @@ export const enum ComputedState {
     Scope
 }
 
+export class CaughtException {
+    constructor(public cause: any) {}
+}
+
+export function isCaughtException(e: any): e is CaughtException {
+    return e instanceof CaughtException;
+}
+
 export class ComputedImpl implements IBobxComputed {
     fn: Function;
     that: any;
     atomId: AtomId;
     $bobx!: 1;
     value: any;
-    exception: any;
     state: ComputedState;
     partialResults: boolean;
 
@@ -1135,11 +1142,12 @@ export class ComputedImpl implements IBobxComputed {
         let using = this.using;
         if (using === undefined) return;
         if (using.delete(atomId)) {
-            if (this.state !== ComputedState.Scope) {
-                if (this.state === ComputedState.Updating) {
+            let state = this.state;
+            if (state !== ComputedState.Scope) {
+                if (state === ComputedState.Updating) {
                     throw new Error("Modifying inputs during updating computed");
                 }
-                if (this.state === ComputedState.Updated) {
+                if (state === ComputedState.Updated) {
                     this.state = ComputedState.NeedRecheck;
                     let usedBy = this.usedBy;
                     if (usedBy !== undefined) {
@@ -1188,7 +1196,6 @@ export class ComputedImpl implements IBobxComputed {
         this.ctxs = undefined;
         this.value = undefined;
         this.state = ComputedState.First;
-        this.exception = undefined;
         this.comparator = comparator;
         this.using = undefined;
         this.usedBy = undefined;
@@ -1253,7 +1260,15 @@ export class ComputedImpl implements IBobxComputed {
         if (this.state === ComputedState.NeedRecheck) this.update();
     }
 
-    update() {
+    call(): any {
+        try {
+            return this.fn.call(this.that);
+        } catch (err) {
+            return new CaughtException(err);
+        }
+    }
+
+    update(): void {
         if (alreadyInterrupted && this.partialResults) {
             setPartialResults();
             return;
@@ -1261,22 +1276,19 @@ export class ComputedImpl implements IBobxComputed {
         let backupCurrentCtx = b.getCurrentCtx();
         b.setCurrentCtx(this as any);
         this.partialResults = false;
-        let isFirst = this.state === ComputedState.First;
-        this.state = ComputedState.Updating;
-        try {
-            let newResult = this.fn.call(this.that);
-            if (isFirst || this.exception !== undefined || !this.comparator(this.value, newResult)) {
-                this.exception = undefined;
+        if (this.state === ComputedState.First) {
+            this.state = ComputedState.Updating;
+            this.value = this.call();
+        } else {
+            this.state = ComputedState.Updating;
+            let newResult = this.call();
+            if (!this.comparator(this.value, newResult)) {
                 this.value = newResult;
-            } else {
-                isFirst = true;
+                this.invalidate();
             }
-        } catch (err) {
-            this.exception = err;
-            this.value = undefined;
         }
-        if (!isFirst) this.invalidate();
-        if (alreadyInterrupted) this.partialResults = true;
+
+        this.partialResults = alreadyInterrupted;
         this.state = ComputedState.Updated;
         b.setCurrentCtx(backupCurrentCtx);
         if (this.partialResults) {
@@ -1296,8 +1308,9 @@ export class ComputedImpl implements IBobxComputed {
                 this.buryIfDead();
             }
         }
-        if (this.exception !== undefined) throw this.exception;
-        return this.value;
+        let value = this.value;
+        if (isCaughtException(value)) throw value.cause;
+        return value;
     }
 }
 
@@ -1464,7 +1477,7 @@ export function computedScope(
     alreadyInterrupted = alreadyInterruptedBackup;
     firstInterruptibleCtx = firstInterruptibleCtxBackup;
     haveTimeBudget = haveTimeBudgetBackup;
-    if (computed.exception !== undefined) throw computed.exception;
+    if (isCaughtException(computed.value)) throw computed.value.cause;
     return computed.partialResults;
 }
 
