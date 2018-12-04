@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.21.0
+
+New `createTransformer` API, it is basically clone of Mobx with just slightly faster implementation. Computed now correctly immediately free nested computed. ComputedImpl now calls `free` method allowing implementing destructors. Fixed tests in IE11.
+
 ## 0.20.0
 
 Optimizations (around exceptions in computed).

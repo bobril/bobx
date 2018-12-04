@@ -18,9 +18,10 @@ describe("ObservableES6Map", () => {
     });
 
     it("prop", () => {
-        let m = observable(
-            new Map<string, string | number>([["a", 1], ["b", "B"]])
-        );
+        let mm = new Map<string, string | number>();
+        mm.set("a", 1);
+        mm.set("b", "B");
+        let m = observable(mm);
         let prop = m.prop("b");
         expect(prop()).toBe("B");
         expect(prop("C")).toBe("C");
@@ -36,7 +37,10 @@ describe("ObservableES6Map", () => {
     });
 
     it("delete", () => {
-        let m = observable(new Map<string, number>([["a", 2], ["b", 4]]));
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
         expect(m.size).toBe(2);
         expect(m.delete("a")).toBe(true);
         expect(m.size).toBe(1);
@@ -45,17 +49,23 @@ describe("ObservableES6Map", () => {
     });
 
     it("foreach", () => {
-        let m = observable(new Map<string, number>([["a", 2], ["b", 4]]));
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
         let a: (string | number)[] = [];
         m.forEach((v, k, m2) => {
             a.push(k, v);
-            expect(m as IMap<string,number>).toBe(m2);
+            expect(m as IMap<string, number>).toBe(m2);
         });
         expect(a).toEqual(["a", 2, "b", 4]);
     });
 
     it("clear", () => {
-        let m = observable(new Map<string, number>([["a", 2], ["b", 4]]));
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
         m.clear();
         expect(m.size).toBe(0);
         m.forEach(() => fail());

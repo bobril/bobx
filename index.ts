@@ -1180,13 +1180,28 @@ export class ComputedImpl implements IBobxComputed {
         }
     }
 
+    free(): void {
+        let using = this.using;
+        if (using !== undefined) {
+            this.using = undefined;
+            using.forEach(v => {
+                if (isIBobxComputed(v)) {
+                    v.unmarkUsedBy(this.atomId);
+                    v.buryIfDead();
+                } else {
+                    (v as ObservableValue<any>).ctxs!.delete(this.atomId);
+                }
+            });
+        }
+    }
+
     buryIfDead(): void {
         if ((this.usedBy !== undefined && this.usedBy.size > 0) || (this.ctxs !== undefined && this.ctxs.size > 0)) {
             return;
         }
         buryDeadSet.delete(this);
         this.state = ComputedState.First;
-        this.freeUsings();
+        this.free();
     }
 
     constructor(fn: Function, that: any, comparator: IEqualsComparer<any>) {
@@ -1491,4 +1506,49 @@ export function reactiveScope(scope: () => void, continueCallback?: () => boolea
         equalsIncludingNaN
     );
     return computedScope(computed, true, continueCallback);
+}
+
+class TransformerComputedImpl extends ComputedImpl {
+    transformerMap: Map<any, any>;
+    onFree?: (target: any, source: any) => void;
+
+    constructor(
+        fn: Function,
+        that: any,
+        comparator: IEqualsComparer<any>,
+        map: Map<any, any>,
+        onFree?: (target: any, source: any) => void
+    ) {
+        super(fn, that, comparator);
+        this.transformerMap = map;
+        this.onFree = onFree;
+    }
+
+    free() {
+        super.free();
+        this.transformerMap.delete(this.that);
+        if (this.onFree) {
+            let target = this.value;
+            if (isCaughtException(target)) target = undefined;
+            this.onFree(target, this.that);
+        }
+    }
+}
+
+export function createTransformer<A, B>(
+    factory: (source: A) => B,
+    onFree?: (target: B | undefined, source: A) => void
+): (source: A) => B {
+    const factoryOnThis = function(this: A): B {
+        return factory(this);
+    };
+    const map = new Map<A, ComputedImpl>();
+    return (source: A) => {
+        let computed = map.get(source);
+        if (computed === undefined) {
+            computed = new TransformerComputedImpl(factoryOnThis, source, equalsIncludingNaN, map, onFree);
+            map.set(source, computed);
+        }
+        return computed.run();
+    };
 }
