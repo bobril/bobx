@@ -1,4 +1,5 @@
 spec/
+.vscode/
 example/
 example.*
 tsconfig.json
