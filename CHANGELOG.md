@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.22.0
+
+`computed` now supports methods with parameters. Yes, just like that. Additionally you can use `computed.customized` which allows customize getHashCode and isEqual methods for better performance.
+New exported helper methods: `getStringHashCode(s: string): number`, `getObjectHashCode(value: any): number` (should be used mostly for objects and functions), `getHashCode(value: any): number` (general, should be good for any inputs)
+
 ## 0.21.0
 
 New `createTransformer` API, it is basically clone of Mobx with just slightly faster implementation. Computed now correctly immediately free nested computed. ComputedImpl now calls `free` method allowing implementing destructors. Fixed tests in IE11.
@@ -26,7 +31,7 @@ Don't leak dead computed result.
 
 ## 0.16.0
 
-Support overriding computed methods which call super.themself.
+Support overriding computed methods which call super.themselves.
 
 ## 0.15.0
 
@@ -34,7 +39,7 @@ Allow Bobril to use ObservableArrays in Vdom. Improved interruptible feature.
 
 ## 0.14.0
 
-New feature of interruptible computed and Bobril render functions after spending 10ms budget. This not just reimplementation of Mobx anymore.
+New feature of interruptible computed and Bobril render functions after spending 10ms budget. This is not just reimplementation of Mobx anymore.
 Exported ComputedImpl class for low level reimplementation of computed.
 
 ## 0.13.2

@@ -1071,12 +1071,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     alreadyInterrupted = false;
     outsideOfComputedPartialResults = false;
     firstInterruptibleCtx = undefined;
-    if (buryDeadSet.size > 0) {
-        buryDeadSet.forEach(v => {
-            v.buryIfDead();
-        });
-        buryDeadSet.clear();
-    }
+    buryWholeDeadSet();
     let iteration = 0;
     while (iteration++ < maxIterations) {
         let list = updateNextFrameList;
@@ -1103,6 +1098,15 @@ export const enum ComputedState {
 
 export class CaughtException {
     constructor(public cause: any) {}
+}
+
+function buryWholeDeadSet() {
+    if (buryDeadSet.size > 0) {
+        buryDeadSet.forEach(v => {
+            v.buryIfDead();
+        });
+        buryDeadSet.clear();
+    }
 }
 
 export function isCaughtException(e: any): e is CaughtException {
@@ -1159,6 +1163,8 @@ export class ComputedImpl implements IBobxComputed {
                     if (this.ctxs !== undefined) {
                         updateNextFrameList.push(this);
                         b.invalidate(bobxRootCtx);
+                    } else {
+                        buryDeadSet.add(this);
                     }
                 }
             }
@@ -1331,12 +1337,72 @@ export class ComputedImpl implements IBobxComputed {
 
 addHiddenFinalProp(ComputedImpl.prototype, "$bobx", ComputedMarker);
 
+export function getStringHashCode(s: string): number {
+    var h = 0,
+        l = s.length,
+        i = 0;
+    while (i < l) h = ((h << 5) - h + s.charCodeAt(i++)) | 0;
+    return h;
+}
+
+const hashes = new WeakMap<any, number>();
+
+export function getObjectHashCode(value: any): number {
+    let result = hashes.get(value);
+    if (result !== undefined) return result;
+    result = allocId() | 0;
+    hashes.set(value, result);
+    return result;
+}
+
+export function getHashCode(value: any): number {
+    if (value == undefined) return 1;
+    if (value === false) return 2;
+    if (value === true) return 3;
+    if (b.isNumber(value)) return value | 0;
+    if (b.isString(value)) return getStringHashCode(value);
+    return getObjectHashCode(value);
+}
+
+export interface IComputedOptions<Params, Output> {
+    getHashCode?(params: Params): number;
+    isEqual?(a: Params, b: Params): boolean;
+    onFree?(output: Output | undefined, params: Params): void;
+    comparator?: IEqualsComparer<Output>;
+}
+
+const defaultComputedOptions: IComputedOptions<any[], any> = {
+    getHashCode(params: any[]): number {
+        var h = 0,
+            l = params.length,
+            i = 0;
+        while (i < l) h = ((h << 5) - h + getHashCode(params[i++])) | 0;
+        return h;
+    },
+    isEqual(a: any[], b: any[]): boolean {
+        var l = a.length;
+        if (l !== b.length) return false;
+        for (var i = 0; i < l; i++) {
+            if (!equalsIncludingNaN(a[i], b[i])) return false;
+        }
+        return true;
+    },
+    comparator: equalsIncludingNaN
+};
+
 export interface IComputedFactory {
     (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any>;
     struct: (target: any, propName: string, descriptor: PropertyDescriptor) => TypedPropertyDescriptor<any>;
     equals<T>(
         comparator: IEqualsComparer<T>
     ): (target: any, propName: string, descriptor: TypedPropertyDescriptor<any>) => TypedPropertyDescriptor<any>;
+    customized(
+        options: IComputedOptions<any[], any>
+    ): (
+        target: any,
+        propName: string,
+        descriptor: TypedPropertyDescriptor<(...params: any[]) => any>
+    ) => TypedPropertyDescriptor<(...params: any[]) => any>;
 }
 
 function buildComputed<T>(comparator: IEqualsComparer<T>) {
@@ -1361,6 +1427,10 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
             };
         } else {
             const fn = descriptor.value;
+            assertFunctionInComputed(fn);
+            if (fn.length > 0) {
+                return buildParametricCompute<T>(propName, fn, { comparator });
+            }
             return {
                 configurable: true,
                 enumerable: false,
@@ -1377,9 +1447,146 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
         }
     };
 }
+
+function assertFunctionInComputed(fn: any) {
+    if (!b.isFunction(fn)) {
+        throw new Error("Computed could be only function");
+    }
+}
+
+function buildCustomizedComputed<T>(options: IComputedOptions<any[], any>) {
+    return (target: any, propName: string, descriptor: PropertyDescriptor): TypedPropertyDescriptor<any> => {
+        initObservableClassPrototype(target);
+        propName = propName + "\t" + target.constructor[$atomId];
+        if (descriptor.get != undefined) {
+            throw new Error("Customized Computed could not be property");
+        } else {
+            const fn = descriptor.value;
+            assertFunctionInComputed(fn);
+            return buildParametricCompute<T>(propName, fn, options);
+        }
+    };
+}
+
 export var computed: IComputedFactory = buildComputed(equalsIncludingNaN) as any;
 computed.struct = buildComputed(deepEqual);
 computed.equals = buildComputed;
+computed.customized = buildCustomizedComputed;
+
+const arraySlice = Array.prototype.slice;
+
+function buildParametricCompute<T>(
+    propName: string,
+    fn: Function,
+    options: IComputedOptions<any[], T>
+): TypedPropertyDescriptor<any> {
+    return {
+        configurable: true,
+        enumerable: false,
+        value: function(this: IAtom) {
+            let val: ParametricComputedMap | undefined = this.$bobx[propName];
+            if (val === undefined) {
+                let behind = asObservableClass(this);
+                val = new ParametricComputedMap(fn, this, options);
+                (behind as any)[propName] = val;
+            }
+            return val.run(arraySlice.call(arguments));
+        }
+    };
+}
+
+class ParamComputedImpl extends ComputedImpl {
+    owner: ParametricComputedMap;
+    hashCode: number;
+    params: any[];
+
+    constructor(
+        fn: Function,
+        that: any,
+        comparator: IEqualsComparer<any>,
+        owner: ParametricComputedMap,
+        hashCode: number,
+        params: any[]
+    ) {
+        super(fn, that, comparator);
+        this.owner = owner;
+        this.hashCode = hashCode;
+        this.params = params;
+    }
+
+    call(): any {
+        try {
+            return this.fn.apply(this.that, this.params);
+        } catch (err) {
+            return new CaughtException(err);
+        }
+    }
+
+    free() {
+        super.free();
+        this.owner.free(this);
+    }
+}
+
+class ParametricComputedMap {
+    fn: Function;
+    that: Object;
+    map: Map<number, ParamComputedImpl[]>;
+    getHashCode: (params: any[]) => number;
+    isEqual: (a: any[], b: any[]) => boolean;
+    onFree?: (output: any | undefined, params: any[]) => void;
+    comparator: IEqualsComparer<any>;
+
+    constructor(fn: Function, that: Object, options: IComputedOptions<any[], any>) {
+        this.fn = fn;
+        this.that = that;
+        this.map = new Map();
+        this.getHashCode = options.getHashCode || defaultComputedOptions.getHashCode!;
+        this.isEqual = options.isEqual || defaultComputedOptions.isEqual!;
+        this.onFree = options.onFree;
+        this.comparator = options.comparator || defaultComputedOptions.comparator!;
+    }
+
+    run(params: any[]) {
+        const hashCode = this.getHashCode(params);
+        let row = this.map.get(hashCode);
+        let item: ParamComputedImpl | undefined = undefined;
+        if (row === undefined) {
+            item = new ParamComputedImpl(this.fn, this.that, this.comparator, this, hashCode, params);
+            row = [item];
+            this.map.set(hashCode, row);
+        } else {
+            const len = row.length;
+            for (var i = 0; i < len; i++) {
+                if (this.isEqual(params, row[i].params)) {
+                    item = row[i];
+                    break;
+                }
+            }
+            if (item === undefined) {
+                item = new ParamComputedImpl(this.fn, this.that, this.comparator, this, hashCode, params);
+                row.push(item);
+            }
+        }
+        return item.run();
+    }
+
+    free(item: ParamComputedImpl) {
+        const hashCode = item.hashCode;
+        const row = this.map.get(hashCode)!;
+        if (row.length == 1) {
+            this.map.delete(hashCode);
+        } else {
+            const index = row!.indexOf(item);
+            row.splice(index, 1);
+        }
+        if (this.onFree !== undefined) {
+            let target = item.value;
+            if (isCaughtException(target)) target = undefined;
+            this.onFree(target, item.params);
+        }
+    }
+}
 
 export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
@@ -1488,7 +1695,10 @@ export function computedScope(
         alreadyInterrupted = false;
     }
     computed.update();
-    if (callBuryIfDead) computed.buryIfDead();
+    if (callBuryIfDead) {
+        computed.buryIfDead();
+        buryWholeDeadSet();
+    }
     alreadyInterrupted = alreadyInterruptedBackup;
     firstInterruptibleCtx = firstInterruptibleCtxBackup;
     haveTimeBudget = haveTimeBudgetBackup;
