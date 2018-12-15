@@ -742,7 +742,7 @@ export interface IObservableMap<K, V> extends IMap<K, V> {
 
 export type IObservableMapInitialValues<K, V> = IMapEntries<K, V> | IKeyValueMap<V> | IMap<K, V> | Map<K, V>;
 
-class ObservableMap<K, V> implements IObservableMap<K, V> {
+export class ObservableMap<K, V> implements IObservableMap<K, V> {
     _size: number;
 
     get size(): number {
@@ -754,7 +754,7 @@ class ObservableMap<K, V> implements IObservableMap<K, V> {
     $atom: ObservableValue<any>;
     $content: IMap<K, ObservableValue<V>>;
 
-    constructor(init: IObservableMapInitialValues<K, V>, enhancer: IEnhancer<V>) {
+    constructor(init: IObservableMapInitialValues<K, V> | null | undefined, enhancer: IEnhancer<V>) {
         this.$enhancer = enhancer;
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
         this.$content = new Map();
@@ -1528,16 +1528,16 @@ class ParamComputedImpl extends ComputedImpl {
     }
 }
 
-class ParametricComputedMap {
+export class ParametricComputedMap {
     fn: Function;
-    that: Object;
+    that: any;
     map: Map<number, ParamComputedImpl[]>;
     getHashCode: (params: any[]) => number;
     isEqual: (a: any[], b: any[]) => boolean;
     onFree?: (output: any | undefined, params: any[]) => void;
     comparator: IEqualsComparer<any>;
 
-    constructor(fn: Function, that: Object, options: IComputedOptions<any[], any>) {
+    constructor(fn: Function, that: any, options: IComputedOptions<any[], any>) {
         this.fn = fn;
         this.that = that;
         this.map = new Map();
