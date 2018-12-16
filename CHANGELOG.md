@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.23.0
+
+Export some internals from previous version.
+
 ## 0.22.0
 
 `computed` now supports methods with parameters. Yes, just like that. Additionally you can use `computed.customized` which allows customize getHashCode and isEqual methods for better performance.
