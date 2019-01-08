@@ -515,14 +515,14 @@ export class ObservableArray<T> extends StubArray {
     reverse(): T[] {
         this.$atom.invalidate();
         let values = this.$bobx;
-        values.reverse.apply(values, arguments);
+        values.reverse.apply(values, arguments as any);
         return this as any;
     }
 
     sort(_compareFn?: (a: T, b: T) => number): T[] {
         this.$atom.invalidate();
         let values = this.$bobx;
-        values.sort.apply(values, arguments);
+        values.sort.apply(values, arguments as any);
         return this as any;
     }
 
@@ -574,7 +574,7 @@ export class ObservableArray<T> extends StubArray {
 
     toString(): string {
         this.$atom.markUsage();
-        return Array.prototype.toString.apply(this.$bobx, arguments);
+        return Array.prototype.toString.apply(this.$bobx, arguments as any);
     }
 }
 
@@ -1020,7 +1020,7 @@ export interface IObservableFactories {
 
 function createObservable(value: any = undefined): IObservableValue<any> {
     // @observable someProp;
-    if (typeof arguments[1] === "string") return deepDecorator.apply(null, arguments);
+    if (arguments.length > 1) return deepDecorator.apply(null, arguments as any) as any;
 
     // it is an observable already, done
     if (isObservable(value)) return value;

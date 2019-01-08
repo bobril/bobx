@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.23.1
+
+Fixed compilation in TypeScript 3.2.2
+
 ## 0.23.0
 
 Export some internals from previous version.
