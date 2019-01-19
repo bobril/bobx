@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.24.0
+
+New feature debugRunWhenInvalidated for debugging when current computed will be invalidated next time.
+Some fixes around computed and interrupted.
+
 ## 0.23.1
 
 Fixed compilation in TypeScript 3.2.2

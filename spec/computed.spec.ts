@@ -1,5 +1,7 @@
 import * as b from "bobril";
-import { computed, observable, reactiveScope } from "../index";
+import { computed, observable, reactiveScope, debugRunWhenInvalidated } from "../index";
+
+declare var DEBUG: boolean;
 
 describe("computed", () => {
     it("simple function returning constant", () => {
@@ -256,4 +258,27 @@ describe("computed", () => {
         expect(free1).toBe(0);
         expect(free2).toBe(1);
     });
+
+    if (DEBUG) {
+        it("debugRunWhenInvalidated works", () => {
+            let invalidated = 0;
+            class C {
+                @observable
+                v = 0;
+                @computed
+                f() {
+                    debugRunWhenInvalidated(() => invalidated++);
+                    return this.v + 1;
+                }
+            }
+
+            let c = new C();
+            reactiveScope(() => {
+                expect(c.f()).toBe(1);
+                expect(invalidated).toBe(0);
+                c.v = 1;
+                expect(invalidated).toBe(1);
+            });
+        });
+    }
 });

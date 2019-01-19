@@ -1,5 +1,7 @@
 import * as b from "bobril";
 
+declare var DEBUG: boolean;
+
 function equalsIncludingNaN(a: any, b: any) {
     return a === b || (a !== a && b !== b); // it correctly returns true for NaN and NaN
 }
@@ -58,6 +60,7 @@ export interface IBobxComputed extends IAtom {
     update(): void;
     updateIfNeeded(): void;
     buryIfDead(): void;
+    onInvalidated?: (that: IBobxComputed) => void;
 }
 
 export type IBobxCallerCtx = IBobxComputed | IBobXBobrilCtx;
@@ -1123,6 +1126,7 @@ export class ComputedImpl implements IBobxComputed {
     value: any;
     state: ComputedState;
     partialResults: boolean;
+    onInvalidated?: (that: IBobxComputed) => void;
 
     comparator: IEqualsComparer<any>;
 
@@ -1153,6 +1157,10 @@ export class ComputedImpl implements IBobxComputed {
                 throw new Error("Modifying inputs during updating computed");
             }
             if (state === ComputedState.Updated) {
+                if (DEBUG) {
+                    var i = this.onInvalidated;
+                    if (i) i(this);
+                }
                 this.state = ComputedState.NeedRecheck;
                 if (this.ctxs !== undefined || this.usedBy !== undefined) {
                     if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
@@ -1761,4 +1769,18 @@ export function createTransformer<A, B>(
         }
         return computed.run();
     };
+}
+
+export function debugRunWhenInvalidated(fnc: () => void) {
+    if (!DEBUG) return;
+    const ctx = b.getCurrentCtx() as IBobxCallerCtx;
+    if (isIBobxComputed(ctx)) {
+        ctx.onInvalidated =
+            fnc ||
+            (() => {
+                debugger;
+            });
+    } else {
+        throw new Error("debugRunWhenInvalidated could be called only from computed");
+    }
 }
