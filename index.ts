@@ -1068,10 +1068,12 @@ export let maxIterations = 100;
 
 const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
     frameStart = b.now();
+    if (!alreadyInterrupted) {
+        buryWholeDeadSet();
+    }
     alreadyInterrupted = false;
     outsideOfComputedPartialResults = false;
     firstInterruptibleCtx = undefined;
-    buryWholeDeadSet();
     let iteration = 0;
     while (iteration++ < maxIterations) {
         let list = updateNextFrameList;
@@ -1147,25 +1149,14 @@ export class ComputedImpl implements IBobxComputed {
         if (using === undefined) return;
         if (using.delete(atomId)) {
             let state = this.state;
-            if (state !== ComputedState.Scope) {
-                if (state === ComputedState.Updating) {
-                    throw new Error("Modifying inputs during updating computed");
-                }
-                if (state === ComputedState.Updated) {
-                    this.state = ComputedState.NeedRecheck;
-                    let usedBy = this.usedBy;
-                    if (usedBy !== undefined) {
-                        usedBy.forEach(function(this: ComputedImpl, comp: IBobxComputed) {
-                            comp.invalidateBy(this.atomId);
-                        }, this);
-                        usedBy.clear();
-                    }
-                    if (this.ctxs !== undefined) {
-                        updateNextFrameList.push(this);
-                        b.invalidate(bobxRootCtx);
-                    } else {
-                        buryDeadSet.add(this);
-                    }
+            if (state === ComputedState.Updating) {
+                throw new Error("Modifying inputs during updating computed");
+            }
+            if (state === ComputedState.Updated) {
+                this.state = ComputedState.NeedRecheck;
+                if (this.ctxs !== undefined || this.usedBy !== undefined) {
+                    if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
+                    updateNextFrameList.push(this);
                 }
             }
             this.freeUsings();
@@ -1269,12 +1260,21 @@ export class ComputedImpl implements IBobxComputed {
 
     invalidate() {
         const ctxs = this.ctxs;
-        if (ctxs === undefined) return;
-        ctxs.forEach(function(this: ComputedImpl, ctx) {
-            ctx.$bobxCtx!.delete(this.atomId);
-            b.invalidate(ctx);
-        }, this);
-        ctxs.clear();
+        if (ctxs !== undefined) {
+            ctxs.forEach(function(this: ComputedImpl, ctx) {
+                ctx.$bobxCtx!.delete(this.atomId);
+                b.invalidate(ctx);
+            }, this);
+            ctxs.clear();
+        }
+        const usedBy = this.usedBy;
+        if (usedBy !== undefined) {
+            usedBy.forEach(function(this: ComputedImpl, use) {
+                use.invalidateBy(this.atomId);
+            }, this);
+            usedBy.clear();
+        }
+        buryDeadSet.add(this);
     }
 
     updateIfNeeded() {

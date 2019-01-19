@@ -193,4 +193,67 @@ describe("computed", () => {
         b.init(() => undefined);
         b.syncUpdate();
     });
+
+    it("nested computed are called optimally", () => {
+        let v = observable(0);
+        let computedCalls1 = 0;
+        let free1 = 0;
+        let computedCalls2 = 0;
+        let free2 = 0;
+        let callF2 = true;
+        class C {
+            @computed.customized({
+                onFree: () => {
+                    free1++;
+                }
+            })
+            f1(): number {
+                computedCalls1++;
+                return (v.get() / 10) | 0;
+            }
+            @computed.customized({
+                onFree: () => {
+                    free2++;
+                }
+            })
+            f2(): number {
+                computedCalls2++;
+                return (this.f1() / 10) | 0;
+            }
+        }
+        let c = new C();
+        b.init(() => (callF2 ? c.f2() : c.f1()));
+        b.syncUpdate();
+        expect(computedCalls1).toBe(1);
+        expect(computedCalls2).toBe(1);
+        b.syncUpdate();
+        expect(computedCalls1).toBe(1);
+        expect(computedCalls2).toBe(1);
+        expect(free1).toBe(0);
+        expect(free2).toBe(0);
+        v.set(5);
+        b.syncUpdate();
+        expect(computedCalls1).toBe(2);
+        expect(computedCalls2).toBe(1);
+        expect(free1).toBe(0);
+        expect(free2).toBe(0);
+        v.set(55);
+        b.syncUpdate();
+        expect(computedCalls1).toBe(3);
+        expect(computedCalls2).toBe(2);
+        expect(free1).toBe(0);
+        expect(free2).toBe(0);
+        callF2 = false;
+        b.invalidate();
+        b.syncUpdate();
+        expect(computedCalls1).toBe(3);
+        expect(computedCalls2).toBe(2);
+        expect(free1).toBe(0);
+        expect(free2).toBe(0);
+        b.syncUpdate();
+        expect(computedCalls1).toBe(3);
+        expect(computedCalls2).toBe(2);
+        expect(free1).toBe(0);
+        expect(free2).toBe(1);
+    });
 });
