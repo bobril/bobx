@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.24.1
+
+Another fixes for computed.
+
 ## 0.24.0
 
 New feature debugRunWhenInvalidated for debugging when current computed will be invalidated next time.

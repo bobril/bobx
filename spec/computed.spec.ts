@@ -281,4 +281,51 @@ describe("computed", () => {
             });
         });
     }
+
+    it("nested computed are run as needed during same scope", () => {
+        let v = observable(0);
+        let computedCalls1 = 0;
+        let free1 = 0;
+        let computedCalls2 = 0;
+        let free2 = 0;
+        class C {
+            @computed.customized({
+                onFree: () => {
+                    free1++;
+                }
+            })
+            f1(): number {
+                computedCalls1++;
+                return (v.get() / 10) | 0;
+            }
+            @computed.customized({
+                onFree: () => {
+                    free2++;
+                }
+            })
+            f2(): number {
+                computedCalls2++;
+                return (this.f1() / 10) | 0;
+            }
+        }
+        let c = new C();
+        reactiveScope(() => {
+            expect(computedCalls1).toBe(0);
+            expect(computedCalls2).toBe(0);
+            c.f2();
+            expect(computedCalls1).toBe(1);
+            expect(computedCalls2).toBe(1);
+            c.f1();
+            expect(computedCalls1).toBe(1);
+            expect(computedCalls2).toBe(1);
+            v.set(5);
+            c.f2();
+            expect(computedCalls1).toBe(2);
+            expect(computedCalls2).toBe(1);
+            expect(free1).toBe(0);
+            expect(free2).toBe(0);
+        });
+        expect(free1).toBe(1);
+        expect(free2).toBe(1);
+    });
 });

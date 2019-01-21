@@ -57,6 +57,7 @@ export interface IBobxComputed extends IAtom {
     unmarkUsedBy(atomId: AtomId): void;
     unmarkCtx(ctxId: AtomId): void;
     invalidateBy(atomId: AtomId): void;
+    softInvalidate(): void;
     update(): void;
     updateIfNeeded(): void;
     buryIfDead(): void;
@@ -1098,6 +1099,7 @@ export const enum ComputedState {
     NeedRecheck,
     Updating,
     Updated,
+    NeedDepsRecheck,
     Scope
 }
 
@@ -1156,19 +1158,48 @@ export class ComputedImpl implements IBobxComputed {
             if (state === ComputedState.Updating) {
                 throw new Error("Modifying inputs during updating computed");
             }
-            if (state === ComputedState.Updated) {
+            if (state === ComputedState.Updated || state === ComputedState.NeedDepsRecheck) {
                 if (DEBUG) {
                     var i = this.onInvalidated;
                     if (i) i(this);
                 }
                 this.state = ComputedState.NeedRecheck;
-                if (this.ctxs !== undefined || this.usedBy !== undefined) {
-                    if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
-                    updateNextFrameList.push(this);
+                let usedBy = this.usedBy;
+                if (usedBy !== undefined) {
+                    usedBy.forEach(use => {
+                        use.softInvalidate();
+                    });
+                }
+                if (this.ctxs !== undefined) {
+                    this.scheduleUpdateNextFrame();
                 }
             }
             this.freeUsings();
         }
+    }
+
+    softInvalidate(): void {
+        let state = this.state;
+        if (state === ComputedState.Updating) {
+            throw new Error("Modifying inputs during updating computed");
+        }
+        if (state === ComputedState.Updated) {
+            this.state = ComputedState.NeedDepsRecheck;
+            let usedBy = this.usedBy;
+            if (usedBy !== undefined) {
+                usedBy.forEach(use => {
+                    use.softInvalidate();
+                });
+            }
+            if (this.ctxs !== undefined) {
+                this.scheduleUpdateNextFrame();
+            }
+        }
+    }
+
+    private scheduleUpdateNextFrame(): void {
+        if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
+        updateNextFrameList.push(this);
     }
 
     freeUsings() {
@@ -1236,11 +1267,11 @@ export class ComputedImpl implements IBobxComputed {
         }
     }
 
-    markUsage() {
+    markUsage(): boolean {
         const ctx = b.getCurrentCtx() as IBobxCallerCtx;
         if (ctx === undefined)
             // outside of render => nothing to mark
-            return;
+            return true;
         if (isIBobxComputed(ctx)) {
             if (ctx.markUsing(this.atomId, this)) {
                 let ctxs = this.usedBy;
@@ -1257,13 +1288,14 @@ export class ComputedImpl implements IBobxComputed {
                 bobx.ctxId = allocId();
                 ctx.$bobxCtx = bobx;
             }
-            if (bobx.has(this.atomId)) return;
+            if (bobx.has(this.atomId)) return false;
             bobx.set(this.atomId, this);
             if (this.ctxs === undefined) {
                 this.ctxs = new Map();
             }
             this.ctxs!.set(bobx.ctxId!, ctx);
         }
+        return false;
     }
 
     invalidate() {
@@ -1285,8 +1317,29 @@ export class ComputedImpl implements IBobxComputed {
         buryDeadSet.add(this);
     }
 
-    updateIfNeeded() {
-        if (this.state === ComputedState.NeedRecheck) this.update();
+    updateIfNeeded(): boolean {
+        const state = this.state;
+        if (state === ComputedState.NeedDepsRecheck) {
+            const using = this.using;
+            if (using !== undefined) {
+                using.forEach(v => {
+                    if (isIBobxComputed(v)) {
+                        v.updateIfNeeded();
+                    }
+                });
+            }
+            if (this.state === ComputedState.NeedDepsRecheck) {
+                this.state = ComputedState.Updated;
+                return true;
+            }
+            this.update();
+            return true;
+        }
+        if (state !== ComputedState.Updated) {
+            this.update();
+            return true;
+        }
+        return false;
     }
 
     call(): any {
@@ -1330,10 +1383,9 @@ export class ComputedImpl implements IBobxComputed {
         if (this.state === ComputedState.Updating) {
             throw new Error("Recursively calling computed value");
         }
-        this.markUsage();
-        if (this.state !== ComputedState.Updated) {
-            this.update();
-            if (b.getCurrentCtx() === undefined) {
+        const outsideOfScope = this.markUsage();
+        if (this.updateIfNeeded()) {
+            if (outsideOfScope) {
                 this.buryIfDead();
             }
         }
