@@ -1358,6 +1358,7 @@ export class ComputedImpl implements IBobxComputed {
         let backupCurrentCtx = b.getCurrentCtx();
         b.setCurrentCtx(this as any);
         this.partialResults = false;
+        this.freeUsings();
         if (this.state === ComputedState.First) {
             this.state = ComputedState.Updating;
             this.value = this.call();
@@ -1383,12 +1384,9 @@ export class ComputedImpl implements IBobxComputed {
         if (this.state === ComputedState.Updating) {
             throw new Error("Recursively calling computed value");
         }
-        const outsideOfScope = this.markUsage();
-        if (this.updateIfNeeded()) {
-            if (outsideOfScope) {
-                this.buryIfDead();
-            }
-        }
+        const wasUpdate = this.updateIfNeeded();
+        const usedOutsideOfScope = this.markUsage();
+        if (wasUpdate && usedOutsideOfScope) this.buryIfDead();
         let value = this.value;
         if (isCaughtException(value)) throw value.cause;
         return value;
@@ -1749,6 +1747,10 @@ export function computedScope(
     let alreadyInterruptedBackup = alreadyInterrupted;
     let firstInterruptibleCtxBackup = firstInterruptibleCtx;
     let haveTimeBudgetBackup = haveTimeBudget;
+    let buryDeadSetBackup = buryDeadSet;
+    if (callBuryIfDead) {
+        buryDeadSet = new Set();
+    }
     if (continueCallback != undefined) {
         haveTimeBudget = continueCallback;
         firstInterruptibleCtx = undefined;
@@ -1758,6 +1760,7 @@ export function computedScope(
     if (callBuryIfDead) {
         computed.buryIfDead();
         buryWholeDeadSet();
+        buryDeadSet = buryDeadSetBackup;
     }
     alreadyInterrupted = alreadyInterruptedBackup;
     firstInterruptibleCtx = firstInterruptibleCtxBackup;

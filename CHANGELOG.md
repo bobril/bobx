@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.24.2
+
+reactiveScope now free only Computed used inside that scope.
+
 ## 0.24.1
 
 Another fixes for computed.
