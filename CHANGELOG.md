@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.24.3
+
+Simplified code by merging to usedBy maps in Computed. Added assert that detects resurrection of freed computed.
+
 ## 0.24.2
 
 reactiveScope now free only Computed used inside that scope.

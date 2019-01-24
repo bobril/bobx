@@ -55,7 +55,6 @@ export interface IBobxComputed extends IAtom {
     partialResults: boolean;
     markUsing(atomId: AtomId, atom: IAtom): boolean;
     unmarkUsedBy(atomId: AtomId): void;
-    unmarkCtx(ctxId: AtomId): void;
     invalidateBy(atomId: AtomId): void;
     softInvalidate(): void;
     update(): void;
@@ -189,7 +188,7 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
         if (bobx !== undefined) {
             bobx.forEach(function(this: IBobXInCtx, value: IAtom) {
                 if (isIBobxComputed(value)) {
-                    value.unmarkCtx(this.ctxId!);
+                    value.unmarkUsedBy(this.ctxId!);
                 } else {
                     (value as ObservableValue<any>).ctxs!.delete(this.ctxId!);
                 }
@@ -1100,7 +1099,8 @@ export const enum ComputedState {
     Updating,
     Updated,
     NeedDepsRecheck,
-    Scope
+    Scope,
+    PermanentlyDead
 }
 
 export class CaughtException {
@@ -1132,8 +1132,7 @@ export class ComputedImpl implements IBobxComputed {
 
     comparator: IEqualsComparer<any>;
 
-    usedBy: Map<AtomId, IBobxComputed> | undefined;
-    ctxs: Map<CtxId, IBobXBobrilCtx> | undefined;
+    usedBy: Map<AtomId, IBobxComputed | IBobXBobrilCtx> | undefined;
 
     using: Map<AtomId, IAtom> | undefined;
 
@@ -1166,12 +1165,14 @@ export class ComputedImpl implements IBobxComputed {
                 this.state = ComputedState.NeedRecheck;
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
+                    let usedByBobrilNode = false;
                     usedBy.forEach(use => {
-                        use.softInvalidate();
+                        if (isIBobxComputed(use)) use.softInvalidate();
+                        else usedByBobrilNode = true;
                     });
-                }
-                if (this.ctxs !== undefined) {
-                    this.scheduleUpdateNextFrame();
+                    if (usedByBobrilNode) {
+                        this.scheduleUpdateNextFrame();
+                    }
                 }
             }
             this.freeUsings();
@@ -1187,12 +1188,14 @@ export class ComputedImpl implements IBobxComputed {
             this.state = ComputedState.NeedDepsRecheck;
             let usedBy = this.usedBy;
             if (usedBy !== undefined) {
+                let usedByBobrilNode = false;
                 usedBy.forEach(use => {
-                    use.softInvalidate();
+                    if (isIBobxComputed(use)) use.softInvalidate();
+                    else usedByBobrilNode = true;
                 });
-            }
-            if (this.ctxs !== undefined) {
-                this.scheduleUpdateNextFrame();
+                if (usedByBobrilNode) {
+                    this.scheduleUpdateNextFrame();
+                }
             }
         }
     }
@@ -1232,7 +1235,7 @@ export class ComputedImpl implements IBobxComputed {
     }
 
     buryIfDead(): void {
-        if ((this.usedBy !== undefined && this.usedBy.size > 0) || (this.ctxs !== undefined && this.ctxs.size > 0)) {
+        if (this.usedBy !== undefined && this.usedBy.size > 0) {
             return;
         }
         buryDeadSet.delete(this);
@@ -1244,7 +1247,6 @@ export class ComputedImpl implements IBobxComputed {
         this.atomId = allocId();
         this.fn = fn;
         this.that = that;
-        this.ctxs = undefined;
         this.value = undefined;
         this.state = ComputedState.First;
         this.comparator = comparator;
@@ -1255,14 +1257,7 @@ export class ComputedImpl implements IBobxComputed {
 
     unmarkUsedBy(atomId: AtomId): void {
         this.usedBy!.delete(atomId);
-        if (this.usedBy!.size === 0 && (this.ctxs === undefined || this.ctxs.size === 0)) {
-            buryDeadSet.add(this);
-        }
-    }
-
-    unmarkCtx(ctxId: AtomId): void {
-        this.ctxs!.delete(ctxId);
-        if (this.ctxs!.size === 0 && (this.usedBy === undefined || this.usedBy.size === 0)) {
+        if (this.usedBy!.size === 0) {
             buryDeadSet.add(this);
         }
     }
@@ -1290,27 +1285,25 @@ export class ComputedImpl implements IBobxComputed {
             }
             if (bobx.has(this.atomId)) return false;
             bobx.set(this.atomId, this);
-            if (this.ctxs === undefined) {
-                this.ctxs = new Map();
+            let ctxs = this.usedBy;
+            if (ctxs === undefined) {
+                ctxs = new Map();
+                this.usedBy = ctxs;
             }
-            this.ctxs!.set(bobx.ctxId!, ctx);
+            ctxs.set(bobx.ctxId!, ctx);
         }
         return false;
     }
 
     invalidate() {
-        const ctxs = this.ctxs;
-        if (ctxs !== undefined) {
-            ctxs.forEach(function(this: ComputedImpl, ctx) {
-                ctx.$bobxCtx!.delete(this.atomId);
-                b.invalidate(ctx);
-            }, this);
-            ctxs.clear();
-        }
         const usedBy = this.usedBy;
         if (usedBy !== undefined) {
             usedBy.forEach(function(this: ComputedImpl, use) {
-                use.invalidateBy(this.atomId);
+                if (isIBobxComputed(use)) use.invalidateBy(this.atomId);
+                else {
+                    use.$bobxCtx!.delete(this.atomId);
+                    b.invalidate(use);
+                }
             }, this);
             usedBy.clear();
         }
@@ -1319,6 +1312,8 @@ export class ComputedImpl implements IBobxComputed {
 
     updateIfNeeded(): boolean {
         const state = this.state;
+        if (DEBUG && state === ComputedState.PermanentlyDead) throw new Error("Using dead computed, bug in Bobx");
+
         if (state === ComputedState.NeedDepsRecheck) {
             const using = this.using;
             if (using !== undefined) {
@@ -1582,6 +1577,7 @@ class ParamComputedImpl extends ComputedImpl {
 
     free() {
         super.free();
+        if (DEBUG) this.state = ComputedState.PermanentlyDead;
         this.owner.free(this);
     }
 }
@@ -1799,6 +1795,7 @@ class TransformerComputedImpl extends ComputedImpl {
 
     free() {
         super.free();
+        if (DEBUG) this.state = ComputedState.PermanentlyDead;
         this.transformerMap.delete(this.that);
         if (this.onFree) {
             let target = this.value;
