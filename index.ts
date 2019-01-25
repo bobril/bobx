@@ -59,6 +59,7 @@ export interface IBobxComputed extends IAtom {
     softInvalidate(): void;
     update(): void;
     updateIfNeeded(): void;
+    updateIfNeededWithoutResurrecting(): void;
     buryIfDead(): void;
     onInvalidated?: (that: IBobxComputed) => void;
 }
@@ -1083,7 +1084,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
         if (list.length == 0) break;
         updateNextFrameList = [];
         for (let i = 0; i < list.length; i++) {
-            list[i].updateIfNeeded();
+            list[i].updateIfNeededWithoutResurrecting();
         }
     }
     if (iteration >= maxIterations) {
@@ -1308,6 +1309,12 @@ export class ComputedImpl implements IBobxComputed {
             usedBy.clear();
         }
         buryDeadSet.add(this);
+    }
+
+    updateIfNeededWithoutResurrecting() {
+        if (this.state === ComputedState.PermanentlyDead)
+            return;
+        this.updateIfNeeded();
     }
 
     updateIfNeeded(): boolean {

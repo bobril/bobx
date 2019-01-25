@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.24.4
+
+Fixed bug with wrong resurrecting of unused parametric Computed.
+
 ## 0.24.3
 
 Simplified code by merging to usedBy maps in Computed. Added assert that detects resurrection of freed computed.
