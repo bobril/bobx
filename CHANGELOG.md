@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.24.5
+
+Oops, now fixed in production build too.
+
 ## 0.24.4
 
 Fixed bug with wrong resurrecting of unused parametric Computed.

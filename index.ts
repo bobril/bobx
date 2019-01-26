@@ -1584,7 +1584,7 @@ class ParamComputedImpl extends ComputedImpl {
 
     free() {
         super.free();
-        if (DEBUG) this.state = ComputedState.PermanentlyDead;
+        this.state = ComputedState.PermanentlyDead;
         this.owner.free(this);
     }
 }
@@ -1802,7 +1802,7 @@ class TransformerComputedImpl extends ComputedImpl {
 
     free() {
         super.free();
-        if (DEBUG) this.state = ComputedState.PermanentlyDead;
+        this.state = ComputedState.PermanentlyDead;
         this.transformerMap.delete(this.that);
         if (this.onFree) {
             let target = this.value;
