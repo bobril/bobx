@@ -1312,8 +1312,7 @@ export class ComputedImpl implements IBobxComputed {
     }
 
     updateIfNeededWithoutResurrecting() {
-        if (this.state === ComputedState.PermanentlyDead)
-            return;
+        if (this.state === ComputedState.PermanentlyDead) return;
         this.updateIfNeeded();
     }
 
@@ -1415,12 +1414,21 @@ export function getObjectHashCode(value: any): number {
     return result;
 }
 
+export function getArrayHashCode(a: any[]): number {
+    var h = 0,
+        l = a.length,
+        i = 0;
+    while (i < l) h = ((h << 5) - h + getHashCode(a[i++])) | 0;
+    return h;
+}
+
 export function getHashCode(value: any): number {
     if (value == undefined) return 1;
     if (value === false) return 2;
     if (value === true) return 3;
     if (b.isNumber(value)) return value | 0;
     if (b.isString(value)) return getStringHashCode(value);
+    if (b.isArray(value)) return getArrayHashCode(value);
     return getObjectHashCode(value);
 }
 
@@ -1842,4 +1850,32 @@ export function debugRunWhenInvalidated(fnc: () => void) {
     } else {
         throw new Error("debugRunWhenInvalidated could be called only from computed");
     }
+}
+
+export function useObservable<T>(initValue: T | (() => T)): b.IProp<T> {
+    const myHookId = b._allocHook();
+    const hooks = b._getHooks();
+    let hook = hooks[myHookId];
+    if (hook === undefined) {
+        if (b.isFunction(initValue)) {
+            initValue = initValue();
+        }
+        hook = new ObservableValue(initValue, deepEnhancer).prop();
+    }
+    return hook;
+}
+
+export function useComputed<Params, Output>(
+    fn: (...args: Params[]) => Output,
+    options?: IComputedOptions<Params[], Output>
+): (...args: Params[]) => Output {
+    const myHookId = b._allocHook();
+    const hooks = b._getHooks();
+    let hook = hooks[myHookId];
+    if (hook === undefined) {
+        if (options === undefined) options = defaultComputedOptions;
+        const comp = new ParametricComputedMap(fn, undefined, options);
+        hook = comp.run.bind(comp);
+    }
+    return hook;
 }

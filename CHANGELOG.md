@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.25.0
+
+GetHashCode now supports Arrays too.
+New Hooks `useObservable` and `useComputed`.
+
 ## 0.24.5
 
 Oops, now fixed in production build too.
