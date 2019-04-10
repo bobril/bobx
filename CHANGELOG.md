@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.26.0
+
+Fixed `useComputed`. And it is now immediately disposed when owner component is destroyed.
+
 ## 0.25.0
 
 GetHashCode now supports Arrays too.

@@ -1121,7 +1121,7 @@ export function isCaughtException(e: any): e is CaughtException {
     return e instanceof CaughtException;
 }
 
-export class ComputedImpl implements IBobxComputed {
+export class ComputedImpl implements IBobxComputed, b.IDisposable {
     fn: Function;
     that: any;
     atomId: AtomId;
@@ -1233,6 +1233,7 @@ export class ComputedImpl implements IBobxComputed {
                 }
             });
         }
+        this.value = undefined;
     }
 
     buryIfDead(): void {
@@ -1241,6 +1242,12 @@ export class ComputedImpl implements IBobxComputed {
         }
         buryDeadSet.delete(this);
         this.state = ComputedState.First;
+        this.free();
+    }
+
+    dispose(): void {
+        buryDeadSet.delete(this);
+        this.state = ComputedState.PermanentlyDead;
         this.free();
     }
 
@@ -1387,8 +1394,8 @@ export class ComputedImpl implements IBobxComputed {
         }
         const wasUpdate = this.updateIfNeeded();
         const usedOutsideOfScope = this.markUsage();
-        if (wasUpdate && usedOutsideOfScope) this.buryIfDead();
         let value = this.value;
+        if (wasUpdate && usedOutsideOfScope) this.buryIfDead();
         if (isCaughtException(value)) throw value.cause;
         return value;
     }
@@ -1440,13 +1447,7 @@ export interface IComputedOptions<Params, Output> {
 }
 
 const defaultComputedOptions: IComputedOptions<any[], any> = {
-    getHashCode(params: any[]): number {
-        var h = 0,
-            l = params.length,
-            i = 0;
-        while (i < l) h = ((h << 5) - h + getHashCode(params[i++])) | 0;
-        return h;
-    },
+    getHashCode: getArrayHashCode,
     isEqual(a: any[], b: any[]): boolean {
         var l = a.length;
         if (l !== b.length) return false;
@@ -1597,7 +1598,7 @@ class ParamComputedImpl extends ComputedImpl {
     }
 }
 
-export class ParametricComputedMap {
+export class ParametricComputedMap implements b.IDisposable {
     fn: Function;
     that: any;
     map: Map<number, ParamComputedImpl[]>;
@@ -1605,6 +1606,7 @@ export class ParametricComputedMap {
     isEqual: (a: any[], b: any[]) => boolean;
     onFree?: (output: any | undefined, params: any[]) => void;
     comparator: IEqualsComparer<any>;
+    disposing: boolean;
 
     constructor(fn: Function, that: any, options: IComputedOptions<any[], any>) {
         this.fn = fn;
@@ -1614,6 +1616,7 @@ export class ParametricComputedMap {
         this.isEqual = options.isEqual || defaultComputedOptions.isEqual!;
         this.onFree = options.onFree;
         this.comparator = options.comparator || defaultComputedOptions.comparator!;
+        this.disposing = false;
     }
 
     run(params: any[]) {
@@ -1641,6 +1644,12 @@ export class ParametricComputedMap {
     }
 
     free(item: ParamComputedImpl) {
+        if (this.onFree !== undefined) {
+            let target = item.value;
+            if (isCaughtException(target)) target = undefined;
+            this.onFree(target, item.params);
+        }
+        if (this.disposing) return;
         const hashCode = item.hashCode;
         const row = this.map.get(hashCode)!;
         if (row.length == 1) {
@@ -1649,11 +1658,16 @@ export class ParametricComputedMap {
             const index = row!.indexOf(item);
             row.splice(index, 1);
         }
-        if (this.onFree !== undefined) {
-            let target = item.value;
-            if (isCaughtException(target)) target = undefined;
-            this.onFree(target, item.params);
-        }
+    }
+
+    dispose() {
+        this.disposing = true;
+        this.map.forEach(row => {
+            for (let i = 0, l = row.length; i < l; i++) {
+                const item = row[i];
+                item.dispose();
+            }
+        });
     }
 }
 
@@ -1809,11 +1823,11 @@ class TransformerComputedImpl extends ComputedImpl {
     }
 
     free() {
+        let target = this.value;
         super.free();
         this.state = ComputedState.PermanentlyDead;
         this.transformerMap.delete(this.that);
         if (this.onFree) {
-            let target = this.value;
             if (isCaughtException(target)) target = undefined;
             this.onFree(target, this.that);
         }
@@ -1875,7 +1889,9 @@ export function useComputed<Params, Output>(
     if (hook === undefined) {
         if (options === undefined) options = defaultComputedOptions;
         const comp = new ParametricComputedMap(fn, undefined, options);
-        hook = comp.run.bind(comp);
+        hook = (...args: Params[]) => comp.run(args);
+        b.addDisposable(b.getCurrentCtx()!, comp);
+        hooks[myHookId] = hook;
     }
     return hook;
 }
