@@ -1895,3 +1895,232 @@ export function useComputed<Params, Output>(
     }
     return hook;
 }
+
+export class ReactionImpl implements IBobxComputed, b.IDisposable {
+    expression: (disposable: b.IDisposable) => any;
+    reaction?: (value: any, disposable: b.IDisposable) => void;
+    atomId: AtomId;
+    $bobx!: 1;
+    value: any;
+    state: ComputedState;
+    partialResults: boolean;
+    onInvalidated?: (that: IBobxComputed) => void;
+    comparator: IEqualsComparer<any>;
+    using: Map<AtomId, IAtom> | undefined;
+
+    markUsing(atomId: AtomId, atom: IAtom): boolean {
+        let using = this.using;
+        if (using === undefined) {
+            using = new Map();
+            using.set(atomId, atom);
+            this.using = using;
+            return true;
+        }
+        if (using.has(atomId)) return false;
+        using.set(atomId, atom);
+        return true;
+    }
+
+    invalidateBy(atomId: AtomId): void {
+        let using = this.using;
+        if (using === undefined) return;
+        if (using.delete(atomId)) {
+            let state = this.state;
+            if (state === ComputedState.Updated || state === ComputedState.NeedDepsRecheck) {
+                if (DEBUG) {
+                    var i = this.onInvalidated;
+                    if (i) i(this);
+                }
+                this.state = ComputedState.NeedRecheck;
+                this.scheduleUpdateNextFrame();
+            }
+            this.freeUsings();
+        }
+    }
+
+    softInvalidate(): void {
+        let state = this.state;
+        if (state === ComputedState.Updated) {
+            this.state = ComputedState.NeedDepsRecheck;
+            this.scheduleUpdateNextFrame();
+        }
+    }
+
+    scheduleUpdateNextFrame(): void {
+        if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
+        updateNextFrameList.push(this);
+    }
+
+    freeUsings() {
+        let using = this.using;
+        if (using !== undefined) {
+            this.using = undefined;
+            using.forEach(v => {
+                if (isIBobxComputed(v)) {
+                    v.unmarkUsedBy(this.atomId);
+                } else {
+                    (v as ObservableValue<any>).ctxs!.delete(this.atomId);
+                }
+            });
+        }
+    }
+
+    free(): void {
+        let using = this.using;
+        if (using !== undefined) {
+            this.using = undefined;
+            using.forEach(v => {
+                if (isIBobxComputed(v)) {
+                    v.unmarkUsedBy(this.atomId);
+                    v.buryIfDead();
+                } else {
+                    (v as ObservableValue<any>).ctxs!.delete(this.atomId);
+                }
+            });
+        }
+        this.value = undefined;
+    }
+
+    buryIfDead(): void {
+        throw new Error("Reaction-buryIfDead");
+    }
+
+    dispose(): void {
+        this.state = ComputedState.PermanentlyDead;
+        this.free();
+    }
+
+    constructor(
+        expression: (disposable: b.IDisposable) => any,
+        reaction: ((value: any, disposable: b.IDisposable) => void) | undefined,
+        comparator: IEqualsComparer<any>
+    ) {
+        this.atomId = allocId();
+        this.expression = expression;
+        this.reaction = reaction;
+        this.value = undefined;
+        this.state = ComputedState.First;
+        this.comparator = comparator;
+        this.using = undefined;
+        this.partialResults = false;
+    }
+
+    unmarkUsedBy(_atomId: AtomId): void {
+        throw new Error("Reaction-unmarkUsedBy");
+    }
+
+    markUsage(): boolean {
+        throw new Error("Reaction-markUsage");
+    }
+
+    invalidate() {
+        throw new Error("Reaction-invalidate");
+    }
+
+    updateIfNeededWithoutResurrecting() {
+        if (this.state === ComputedState.PermanentlyDead) return;
+        this.updateIfNeeded();
+    }
+
+    updateIfNeeded(): boolean {
+        const state = this.state;
+        if (DEBUG && state === ComputedState.PermanentlyDead) throw new Error("Using dead reaction");
+
+        if (state === ComputedState.NeedDepsRecheck) {
+            const using = this.using;
+            if (using !== undefined) {
+                using.forEach(v => {
+                    if (isIBobxComputed(v)) {
+                        v.updateIfNeeded();
+                    }
+                });
+            }
+            if (this.state === ComputedState.NeedDepsRecheck) {
+                this.state = ComputedState.Updated;
+                return true;
+            }
+            this.update();
+            return true;
+        }
+        if (state !== ComputedState.Updated) {
+            this.update();
+            return true;
+        }
+        return false;
+    }
+
+    call(): any {
+        try {
+            return this.expression(this);
+        } catch (err) {
+            return new CaughtException(err);
+        }
+    }
+
+    update(): void {
+        if (alreadyInterrupted && this.partialResults) {
+            setPartialResults();
+            return;
+        }
+        let backupCurrentCtx = b.getCurrentCtx();
+        b.setCurrentCtx(this as any);
+        this.partialResults = false;
+        this.freeUsings();
+        let wasChange = false;
+        if (this.state === ComputedState.First) {
+            this.state = ComputedState.Updated;
+            this.value = this.call();
+            wasChange = true;
+        } else {
+            this.state = ComputedState.Updated;
+            let newResult = this.call();
+            if (!this.comparator(this.value, newResult)) {
+                this.value = newResult;
+                wasChange = true;
+            }
+        }
+
+        this.partialResults = alreadyInterrupted;
+        b.setCurrentCtx(backupCurrentCtx);
+        if (this.partialResults) {
+            this.state = ComputedState.NeedRecheck;
+            setPartialResults();
+        }
+        if (wasChange) this.runReaction();
+    }
+
+    runReaction() {
+        let value = this.value;
+        if (isCaughtException(value)) throw value.cause;
+        const reaction = this.reaction;
+        if (reaction !== undefined) {
+            reaction(value, this);
+        }
+    }
+}
+
+addHiddenFinalProp(ReactionImpl.prototype, "$bobx", ComputedMarker);
+
+export function reaction<T>(
+    expression: (disposable: b.IDisposable) => T,
+    effect: (value: T, disposable: b.IDisposable) => void
+): b.IDisposable {
+    const reaction = new ReactionImpl(expression, effect, equalsIncludingNaN);
+    reaction.scheduleUpdateNextFrame();
+    return reaction;
+}
+
+export function autorun(view: (disposable: b.IDisposable) => void): b.IDisposable {
+    const autorun = new ReactionImpl(view, undefined, equalsIncludingNaN);
+    autorun.scheduleUpdateNextFrame();
+    return autorun;
+}
+
+export function when(predicate: () => boolean, effect: () => void): b.IDisposable {
+    return autorun(d => {
+        if (predicate()) {
+            d.dispose();
+            effect();
+        }
+    });
+}

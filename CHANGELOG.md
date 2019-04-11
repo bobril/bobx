@@ -1,5 +1,7 @@
 # CHANGELOG
 
+Added `reaction`, `autorun`, `when`.
+
 ## 0.26.0
 
 Fixed `useComputed`. And it is now immediately disposed when owner component is destroyed.
