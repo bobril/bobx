@@ -1875,6 +1875,7 @@ export function useObservable<T>(initValue: T | (() => T)): b.IProp<T> {
             initValue = initValue();
         }
         hook = new ObservableValue(initValue, deepEnhancer).prop();
+        hooks[myHookId] = hook;
     }
     return hook;
 }

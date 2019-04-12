@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.27.1
+
+Fixed `useObservable`.
+
 ## 0.27.0
 
 Added `reaction`, `autorun`, `when`.
