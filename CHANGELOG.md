@@ -1,6 +1,9 @@
 # CHANGELOG
 
+## 0.27.0
+
 Added `reaction`, `autorun`, `when`.
+Fixed `useComputed` typing.
 
 ## 0.26.0
 
