@@ -1879,17 +1879,17 @@ export function useObservable<T>(initValue: T | (() => T)): b.IProp<T> {
     return hook;
 }
 
-export function useComputed<Params, Output>(
-    fn: (...args: Params[]) => Output,
+export function useComputed<Params extends any[], Output>(
+    fn: (...args: Params) => Output,
     options?: IComputedOptions<Params[], Output>
-): (...args: Params[]) => Output {
+): (...args: Params) => Output {
     const myHookId = b._allocHook();
     const hooks = b._getHooks();
     let hook = hooks[myHookId];
     if (hook === undefined) {
         if (options === undefined) options = defaultComputedOptions;
         const comp = new ParametricComputedMap(fn, undefined, options);
-        hook = (...args: Params[]) => comp.run(args);
+        hook = (...args: Params) => comp.run(args);
         b.addDisposable(b.getCurrentCtx()!, comp);
         hooks[myHookId] = hook;
     }
@@ -1932,7 +1932,7 @@ export class ReactionImpl implements IBobxComputed, b.IDisposable {
                     if (i) i(this);
                 }
                 this.state = ComputedState.NeedRecheck;
-                this.scheduleUpdateNextFrame();
+                this.schedule();
             }
             this.freeUsings();
         }
@@ -1942,11 +1942,11 @@ export class ReactionImpl implements IBobxComputed, b.IDisposable {
         let state = this.state;
         if (state === ComputedState.Updated) {
             this.state = ComputedState.NeedDepsRecheck;
-            this.scheduleUpdateNextFrame();
+            this.schedule();
         }
     }
 
-    scheduleUpdateNextFrame(): void {
+    schedule(): void {
         if (updateNextFrameList.length == 0) b.invalidate(bobxRootCtx);
         updateNextFrameList.push(this);
     }
@@ -2106,13 +2106,13 @@ export function reaction<T>(
     effect: (value: T, disposable: b.IDisposable) => void
 ): b.IDisposable {
     const reaction = new ReactionImpl(expression, effect, equalsIncludingNaN);
-    reaction.scheduleUpdateNextFrame();
+    reaction.schedule();
     return reaction;
 }
 
 export function autorun(view: (disposable: b.IDisposable) => void): b.IDisposable {
     const autorun = new ReactionImpl(view, undefined, equalsIncludingNaN);
-    autorun.scheduleUpdateNextFrame();
+    autorun.schedule();
     return autorun;
 }
 
