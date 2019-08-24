@@ -1,5 +1,7 @@
 # CHANGELOG
 
+WIP Async Computed feature.
+
 ## 0.27.1
 
 Fixed `useObservable`.

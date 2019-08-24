@@ -468,7 +468,7 @@ export class ObservableArray<T> extends StubArray {
     }
 
     /**
-     * Converts this array back to a (shallow) javascript structure.
+     * Converts this array back to a (shallow) JavaScript structure.
      */
     toJS(): T[] {
         return (this as any).slice();
@@ -583,7 +583,7 @@ export class ObservableArray<T> extends StubArray {
 }
 
 /**
- * We don't want those to show up in `for (const key in ar)` ...
+ * We don't want those to show up in `for (const key in array)` ...
  */
 makeNonEnumerable(ObservableArray.prototype, [
     "constructor",
@@ -1101,7 +1101,9 @@ export const enum ComputedState {
     Updated,
     NeedDepsRecheck,
     Scope,
-    PermanentlyDead
+    PermanentlyDead,
+    Waiting,
+    Zombie
 }
 
 export class CaughtException {
@@ -1128,6 +1130,8 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
     $bobx!: 1;
     value: any;
     state: ComputedState;
+    zombieTime?: number;
+    zombieCounter: number;
     partialResults: boolean;
     onInvalidated?: (that: IBobxComputed) => void;
 
@@ -1136,6 +1140,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
     usedBy: Map<AtomId, IBobxComputed | IBobXBobrilCtx> | undefined;
 
     using: Map<AtomId, IAtom> | undefined;
+    static BuryZombie: ComputedState;
 
     markUsing(atomId: AtomId, atom: IAtom): boolean {
         let using = this.using;
@@ -1150,11 +1155,18 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         return true;
     }
 
+    waitingInvalidate(_soft: boolean): ComputedState {
+        throw new Error("Invalid operation");
+    }
+
     invalidateBy(atomId: AtomId): void {
         let using = this.using;
         if (using === undefined) return;
         if (using.delete(atomId)) {
             let state = this.state;
+            if (state === ComputedState.Waiting) {
+                state = this.waitingInvalidate(false);
+            }
             if (state === ComputedState.Updating) {
                 throw new Error("Modifying inputs during updating computed");
             }
@@ -1182,6 +1194,9 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
 
     softInvalidate(): void {
         let state = this.state;
+        if (state === ComputedState.Waiting) {
+            state = this.waitingInvalidate(true);
+        }
         if (state === ComputedState.Updating) {
             throw new Error("Modifying inputs during updating computed");
         }
@@ -1241,6 +1256,18 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
             return;
         }
         buryDeadSet.delete(this);
+        const state = this.state;
+        if (state === ComputedState.Zombie || state === ComputedState.Waiting) return;
+        if (this.zombieTime) {
+            this.state = ComputedState.Zombie;
+            const zombieCounter = ++this.zombieCounter;
+            setTimeout(() => {
+                if (this.state === ComputedState.Zombie && this.zombieCounter == zombieCounter) {
+                    this.free();
+                }
+            }, this.zombieTime);
+            return;
+        }
         this.state = ComputedState.First;
         this.free();
     }
@@ -1261,6 +1288,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         this.using = undefined;
         this.usedBy = undefined;
         this.partialResults = false;
+        this.zombieCounter = 0;
     }
 
     unmarkUsedBy(atomId: AtomId): void {
@@ -1388,10 +1416,14 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         }
     }
 
-    run() {
+    checkRecursion() {
         if (this.state === ComputedState.Updating) {
             throw new Error("Recursively calling computed value");
         }
+    }
+
+    run() {
+        this.checkRecursion();
         const wasUpdate = this.updateIfNeeded();
         const usedOutsideOfScope = this.markUsage();
         let value = this.value;
@@ -1472,6 +1504,11 @@ export interface IComputedFactory {
         propName: string,
         descriptor: TypedPropertyDescriptor<(...params: any[]) => any>
     ) => TypedPropertyDescriptor<(...params: any[]) => any>;
+}
+
+export interface IAsyncComputed<T> {
+    busy: boolean;
+    result: T;
 }
 
 function buildComputed<T>(comparator: IEqualsComparer<T>) {
@@ -2125,3 +2162,173 @@ export function when(predicate: () => boolean, effect: () => void): b.IDisposabl
         }
     });
 }
+
+export function isPromise(p: any): p is Promise<any> {
+    return p instanceof Promise;
+}
+
+export function isPromiseLike(p: any): p is PromiseLike<any> {
+    if (isPromise(p)) return true;
+    const { then } = p || false;
+
+    return b.isFunction(then);
+}
+
+class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
+    constructor(fn: Function, comparator: IEqualsComparer<any>) {
+        super(fn, undefined, comparator);
+        this.iterator = undefined;
+        this.zombieTime = 100;
+    }
+
+    iterator: Iterator<any> | undefined;
+
+    get busy(): boolean {
+        this.checkRecursion();
+        this.markUsage();
+        const state = this.state;
+        return state === ComputedState.Updating || state === ComputedState.Waiting;
+    }
+
+    get result(): any {
+        this.checkRecursion();
+        this.markUsage();
+        let value = this.value;
+        if (isCaughtException(value)) throw value.cause;
+        return this.value;
+    }
+
+    call(): Iterator<any> {
+        // this will just create iterator, it cannot throw
+        return this.fn();
+    }
+
+    free() {
+        super.free();
+    }
+
+    promiseFulfilled(value: any) {
+        let backupCurrentCtx = b.getCurrentCtx();
+        b.setCurrentCtx(this as any);
+        this.state = ComputedState.Updating;
+        try {
+            this.iteratorNext(this.iterator!.next(value));
+        } catch (err) {
+            this.value = new CaughtException(err);
+            this.state = ComputedState.Updated;
+            this.invalidate();
+        }
+        b.setCurrentCtx(backupCurrentCtx);
+    }
+
+    promiseFailed(err: any) {
+        let backupCurrentCtx = b.getCurrentCtx();
+        b.setCurrentCtx(this as any);
+        this.state = ComputedState.Updating;
+        try {
+            this.iteratorNext(this.iterator!.throw!(err));
+        } catch (err) {
+            this.value = new CaughtException(err);
+            this.state = ComputedState.Updated;
+            this.invalidate();
+        }
+        b.setCurrentCtx(backupCurrentCtx);
+    }
+
+    iteratorNext(newResult: IteratorResult<any>) {
+        while (true) {
+            const newValue = newResult.value;
+            if (newResult.done !== true) {
+                if (isPromiseLike(newValue)) {
+                    this.state = ComputedState.Waiting;
+                    newValue.then((v: any) => this.promiseFulfilled(v), (err: any) => this.promiseFailed(err));
+                    return;
+                }
+            }
+            if (!this.comparator(this.value, newValue)) {
+                this.value = newValue;
+                this.invalidate();
+                if (newResult.done === true) {
+                    this.state = ComputedState.Updated;
+                    return;
+                }
+            }
+            if (alreadyInterrupted) {
+                this.partialResults = true;
+            }
+            if (newResult.done === true) {
+                this.state = ComputedState.Updated;
+                this.invalidate();
+                return;
+            }
+            newResult = this.iterator!.next();
+        }
+    }
+
+    update(): void {
+        if (alreadyInterrupted && this.partialResults) {
+            setPartialResults();
+            return;
+        }
+        let backupCurrentCtx = b.getCurrentCtx();
+        b.setCurrentCtx(this as any);
+        this.partialResults = false;
+        this.freeUsings();
+        this.state = ComputedState.Updating;
+        this.iterator = this.call();
+        try {
+            this.iteratorNext(this.iterator!.next());
+        } catch (err) {
+            this.value = new CaughtException(err);
+            this.state = ComputedState.Updated;
+            this.invalidate();
+        }
+        b.setCurrentCtx(backupCurrentCtx);
+    }
+
+    run() {
+        if (this.state === ComputedState.Zombie) {
+            this.state = ComputedState.Updated;
+        }
+        if (this.state !== ComputedState.Waiting) {
+            this.checkRecursion();
+            this.updateIfNeeded();
+        }
+        this.markUsage();
+        return this;
+    }
+}
+
+export interface AsyncYield {
+    "!!asyncYield": undefined;
+}
+
+export interface AsyncReturn<T> {
+    "!!asyncReturn": T;
+}
+
+// we skip promises that are the result of yielding promises (except if they use flowReturn)
+export type AsyncReturnType<R> = IfAllArePromiseYieldThenVoid<
+    R extends AsyncReturn<infer FR>
+        ? (FR extends PromiseLike<infer FRP> ? FRP : FR)
+        : R extends PromiseLike<any>
+        ? AsyncYield
+        : R
+>;
+
+// we extract yielded promises from the return type
+export type IfAllArePromiseYieldThenVoid<R> = Exclude<R, AsyncYield> extends never ? void : Exclude<R, AsyncYield>;
+
+function buildAsyncComputed<T>(comparator: IEqualsComparer<T>) {
+    return <T, Args extends any[]>(
+        generator: (...args: Args) => IterableIterator<T>
+    ): ((...args: Args) => IAsyncComputed<AsyncReturnType<T> | undefined>) => {
+        if (generator.length != 0) {
+            throw new Error("Not implemented");
+        }
+        let res = new AsyncComputedImpl(generator, comparator);
+        return () => res.run();
+    };
+}
+
+export const asyncComputed = buildAsyncComputed(equalsIncludingNaN);

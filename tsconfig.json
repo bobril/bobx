@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowJs": false,
     "checkJs": false,
-    "declaration": true,
+    "declaration": false,
     "experimentalDecorators": true,
     "jsx": "react",
     "lib": [
@@ -24,7 +24,7 @@
     "preserveConstEnums": false,
     "reactNamespace": "b",
     "removeComments": false,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "skipDefaultLibCheck": true,
     "sourceMap": true,
     "strict": true,
@@ -33,7 +33,6 @@
     "resolveJsonModule": true
   },
   "files": [
-    "node_modules/bobril/jsx.d.ts",
     "C:/Users/boris/.bbcore/tools/jasmine330.d.ts"
   ],
   "include": [
