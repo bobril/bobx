@@ -2299,30 +2299,20 @@ class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
     }
 }
 
-export interface AsyncYield {
-    "!!asyncYield": undefined;
-}
-
-export interface AsyncReturn<T> {
-    "!!asyncReturn": T;
-}
-
 // we skip promises that are the result of yielding promises (except if they use flowReturn)
-export type AsyncReturnType<R> = IfAllArePromiseYieldThenVoid<
-    R extends AsyncReturn<infer FR>
-        ? (FR extends PromiseLike<infer FRP> ? FRP : FR)
-        : R extends PromiseLike<any>
-        ? AsyncYield
-        : R
->;
+export type AsyncReturnType<G> = G extends Generator<infer Y, infer R, any>
+    ? (Y extends PromiseLike<any> ? R : R | IfAllArePromiseYieldThenVoid<Y>)
+    : void;
 
 // we extract yielded promises from the return type
-export type IfAllArePromiseYieldThenVoid<R> = Exclude<R, AsyncYield> extends never ? void : Exclude<R, AsyncYield>;
+export type IfAllArePromiseYieldThenVoid<R> = Exclude<R, PromiseLike<any>> extends never
+    ? void
+    : Exclude<R, PromiseLike<any>>;
 
-function buildAsyncComputed<T>(comparator: IEqualsComparer<T>) {
-    return <T, Args extends any[]>(
-        generator: (...args: Args) => IterableIterator<T>
-    ): ((...args: Args) => IAsyncComputed<AsyncReturnType<T> | undefined>) => {
+function buildAsyncComputed(comparator: IEqualsComparer<any>) {
+    return <T extends (...args: any[]) => Generator<any, any, any>>(
+        generator: T
+    ): ((...args: Parameters<T>) => IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined>) => {
         if (generator.length != 0) {
             throw new Error("Not implemented");
         }
