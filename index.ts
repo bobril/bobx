@@ -420,7 +420,7 @@ export class ObservableArray<T> extends StubArray {
         }
     }
 
-    splice(index?: number, deleteCount?: number, newItems?: T[]): T[] {
+    splice(index?: number, deleteCount?: number, ...newItems: T[]): T[] {
         const length = this.$bobx.length;
 
         if (index === undefined) index = 0;
@@ -430,8 +430,6 @@ export class ObservableArray<T> extends StubArray {
         if (arguments.length === 1) deleteCount = length - index;
         else if (deleteCount == null) deleteCount = 0;
         else deleteCount = Math.max(0, Math.min(deleteCount, length - index));
-
-        if (newItems === undefined) newItems = [];
 
         if (newItems.length > 0 || deleteCount > 0) this.$atom.invalidate();
         reserveArrayBuffer(length + newItems.length - deleteCount);
@@ -445,7 +443,7 @@ export class ObservableArray<T> extends StubArray {
     setArrayLength(newLength: number) {
         let currentLength = this.$bobx.length;
         if (newLength === currentLength) return;
-        else if (newLength > currentLength) this.splice(currentLength, 0, new Array(newLength - currentLength));
+        else if (newLength > currentLength) this.splice(currentLength, 0, ...new Array(newLength - currentLength));
         else this.splice(newLength, currentLength - newLength);
     }
 
@@ -464,7 +462,7 @@ export class ObservableArray<T> extends StubArray {
     replace(newItems: T[]) {
         this.$atom.invalidate();
 
-        return this.splice(0, this.$bobx.length, newItems);
+        return this.splice(0, this.$bobx.length, ...newItems);
     }
 
     /**
@@ -512,7 +510,7 @@ export class ObservableArray<T> extends StubArray {
     }
 
     unshift(...items: T[]): number {
-        this.splice(0, 0, items);
+        this.splice(0, 0, ...items);
         return this.$bobx.length;
     }
 
@@ -2241,7 +2239,10 @@ class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
             if (newResult.done !== true) {
                 if (isPromiseLike(newValue)) {
                     this.state = ComputedState.Waiting;
-                    newValue.then((v: any) => this.promiseFulfilled(v), (err: any) => this.promiseFailed(err));
+                    newValue.then(
+                        (v: any) => this.promiseFulfilled(v),
+                        (err: any) => this.promiseFailed(err)
+                    );
                     return;
                 }
             }
@@ -2301,7 +2302,9 @@ class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
 
 // we skip promises that are the result of yielding promises (except if they use flowReturn)
 export type AsyncReturnType<G> = G extends Generator<infer Y, infer R, any>
-    ? (Y extends PromiseLike<any> ? R : R | IfAllArePromiseYieldThenVoid<Y>)
+    ? Y extends PromiseLike<any>
+        ? R
+        : R | IfAllArePromiseYieldThenVoid<Y>
     : void;
 
 // we extract yielded promises from the return type
