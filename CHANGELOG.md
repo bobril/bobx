@@ -1,6 +1,10 @@
 # CHANGELOG
 
-WIP Async Computed feature.
+## 0.28.0
+
+Fixed Observable Array splice to be compatible with native Array.
+
+WIP Async Computed feature. (Don't use)
 
 ## 0.27.1
 
