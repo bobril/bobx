@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.28.1
+
 Fixed compatibility with Bobril 14.15.0
 
 ## 0.28.0
