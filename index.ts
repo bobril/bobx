@@ -707,7 +707,7 @@ export function isObservableArray(thing: any): thing is IObservableArray<any> {
     return isObject(thing) && b.isArray(thing.$bobx);
 }
 
-function isArrayLike(thing: any): thing is any[] {
+function isArrayLike<T>(thing: T | {}): thing is T extends readonly any[] ? (unknown extends T ? never : readonly any[]) : any[] {
     return b.isArray(thing) || isObservableArray(thing);
 }
 
