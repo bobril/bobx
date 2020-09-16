@@ -1,5 +1,7 @@
 # CHANGELOG
 
+Fixed compatibility with Bobril 14.15.0
+
 ## 0.28.0
 
 Fixed Observable Array splice to be compatible with native Array.
