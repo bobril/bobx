@@ -11,7 +11,7 @@ function addHiddenProp(object: any, propName: string, value: any) {
         enumerable: false,
         writable: true,
         configurable: true,
-        value
+        value,
     });
 }
 
@@ -20,7 +20,7 @@ function addHiddenFinalProp(object: any, propName: string, value: any) {
         enumerable: false,
         writable: false,
         configurable: true,
-        value
+        value,
     });
 }
 
@@ -165,7 +165,7 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
     invalidate() {
         const ctxs = this.ctxs;
         if (ctxs === undefined) return;
-        ctxs.forEach(function(this: ObservableValue<T>, ctx) {
+        ctxs.forEach(function (this: ObservableValue<T>, ctx) {
             if (isIBobxComputed(ctx)) {
                 ctx.invalidateBy(this.atomId);
             } else {
@@ -187,7 +187,7 @@ let previousBeforeRender = b.setBeforeRender((node: b.IBobrilNode, phase: b.Rend
         outsideOfComputedPartialResults = false;
         let bobx = ctx.$bobxCtx;
         if (bobx !== undefined) {
-            bobx.forEach(function(this: IBobXInCtx, value: IAtom) {
+            bobx.forEach(function (this: IBobXInCtx, value: IAtom) {
                 if (isIBobxComputed(value)) {
                     value.unmarkUsedBy(this.ctxId!);
                 } else {
@@ -335,12 +335,12 @@ function generateObservablePropConfig(propName: string) {
     return (observablePropertyConfigs[propName] = {
         configurable: true,
         enumerable: true,
-        get: function(this: IAtom) {
+        get: function (this: IAtom) {
             return this.$bobx[propName].get();
         },
-        set: function(this: IAtom, value: any) {
+        set: function (this: IAtom, value: any) {
             this.$bobx[propName].set(value);
-        }
+        },
     });
 }
 
@@ -366,7 +366,7 @@ const safariPrototypeSetterInheritanceBug = (() => {
     Object.defineProperty(p, "0", {
         set: () => {
             v = true;
-        }
+        },
     });
     (Object.create(p) as any)["0"] = 1;
     return v === false;
@@ -408,7 +408,7 @@ export class ObservableArray<T> extends StubArray {
 
         if (initialValues && initialValues.length) {
             reserveArrayBuffer(initialValues.length);
-            this.$bobx = initialValues.map(v => enhancer(v, undefined));
+            this.$bobx = initialValues.map((v) => enhancer(v, undefined));
         } else {
             this.$bobx = [];
         }
@@ -455,7 +455,7 @@ export class ObservableArray<T> extends StubArray {
         this.$atom.markUsage();
         return Array.prototype.concat.apply(
             this.$bobx,
-            arrays.map(a => (isObservableArray(a) ? ((a as any) as ObservableArray<T>).$bobx : a))
+            arrays.map((a) => (isObservableArray(a) ? ((a as any) as ObservableArray<T>).$bobx : a))
         );
     }
 
@@ -560,7 +560,7 @@ export class ObservableArray<T> extends StubArray {
                 ...oldItems.slice(0, fromIndex),
                 ...oldItems.slice(fromIndex + 1, toIndex + 1),
                 oldItems[fromIndex],
-                ...oldItems.slice(toIndex + 1)
+                ...oldItems.slice(toIndex + 1),
             ];
         } else {
             // toIndex < fromIndex
@@ -568,7 +568,7 @@ export class ObservableArray<T> extends StubArray {
                 ...oldItems.slice(0, toIndex),
                 oldItems[fromIndex],
                 ...oldItems.slice(toIndex, fromIndex),
-                ...oldItems.slice(fromIndex + 1)
+                ...oldItems.slice(fromIndex + 1),
             ];
         }
         this.replace(newItems);
@@ -609,19 +609,19 @@ makeNonEnumerable(ObservableArray.prototype, [
     "checkIndex",
     "$atom",
     "$bobx",
-    "$enhancer"
+    "$enhancer",
 ]);
 
 Object.defineProperty(ObservableArray.prototype, "length", {
     enumerable: false,
     configurable: true,
-    get: function(this: ObservableArray<any>): number {
+    get: function (this: ObservableArray<any>): number {
         this.$atom.markUsage();
         return this.$bobx.length;
     },
-    set: function(this: ObservableArray<any>, newLength: number) {
+    set: function (this: ObservableArray<any>, newLength: number) {
         this.setArrayLength(newLength);
-    }
+    },
 });
 
 // Wrap function from prototype
@@ -636,10 +636,10 @@ Object.defineProperty(ObservableArray.prototype, "length", {
     "reduce",
     "reduceRight",
     "slice",
-    "some"
-].forEach(funcName => {
+    "some",
+].forEach((funcName) => {
     const baseFunc = (Array.prototype as any)[funcName];
-    addHiddenProp(ObservableArray.prototype, funcName, function(this: ObservableArray<any>) {
+    addHiddenProp(ObservableArray.prototype, funcName, function (this: ObservableArray<any>) {
         this.$atom.markUsage();
         return baseFunc.apply(this.$bobx, arguments);
     });
@@ -649,7 +649,7 @@ const ENTRY_0 = {
     configurable: true,
     enumerable: false,
     set: createArraySetter(0),
-    get: createArrayGetter(0)
+    get: createArrayGetter(0),
 };
 
 function createArrayBufferItem(index: number) {
@@ -659,12 +659,12 @@ function createArrayBufferItem(index: number) {
         enumerable: false,
         configurable: true,
         set,
-        get
+        get,
     });
 }
 
 function createArraySetter(index: number) {
-    return function<T>(this: ObservableArray<any>, newValue: T) {
+    return function <T>(this: ObservableArray<any>, newValue: T) {
         const values = this.$bobx;
         if (index < values.length) {
             // update at index in range
@@ -683,7 +683,7 @@ function createArraySetter(index: number) {
 }
 
 function createArrayGetter(index: number) {
-    return function(this: ObservableArray<any>) {
+    return function (this: ObservableArray<any>) {
         const values = this.$bobx;
         this.$atom.markUsage();
         if (index < values.length) {
@@ -707,7 +707,9 @@ export function isObservableArray(thing: any): thing is IObservableArray<any> {
     return isObject(thing) && b.isArray(thing.$bobx);
 }
 
-function isArrayLike<T>(thing: T | {}): thing is T extends readonly any[] ? (unknown extends T ? never : readonly any[]) : any[] {
+function isArrayLike<T>(
+    thing: T | {}
+): thing is T extends readonly any[] ? (unknown extends T ? never : readonly any[]) : any[] {
     return b.isArray(thing) || isObservableArray(thing);
 }
 
@@ -763,7 +765,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         this._size = 0;
         if (Array.isArray(init)) init.forEach(([key, value]) => this.set(key, value));
         else if (isObservableMap(init) || isES6Map(init)) {
-            (init as IMap<K, V>).forEach(function(this: ObservableMap<K, V>, value: V, key: K) {
+            (init as IMap<K, V>).forEach(function (this: ObservableMap<K, V>, value: V, key: K) {
                 this.set(key, value);
             }, this);
         } else if (isPlainObject(init)) {
@@ -825,7 +827,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
     clear(): void {
         if (this._size == 0) return;
         let c = this.$content;
-        c.forEach(v => v.invalidate());
+        c.forEach((v) => v.invalidate());
         this.$atom.invalidate();
         this._size = 0;
         this.$content.clear();
@@ -845,14 +847,14 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
 
     forEach(callbackfn: (value: V, index: K, map: IObservableMap<K, V>) => void, thisArg?: any): void {
         this.$atom.markUsage();
-        this.$content.forEach(function(this: ObservableMap<K, V>, value: ObservableValue<V>, key: K) {
+        this.$content.forEach(function (this: ObservableMap<K, V>, value: ObservableValue<V>, key: K) {
             callbackfn.call(thisArg, value.get(), key, this);
         }, this);
     }
 
     toJSON() {
         var res = Object.create(null);
-        this.$content.forEach(function(this: any, v: ObservableValue<V>, k: K) {
+        this.$content.forEach(function (this: any, v: ObservableValue<V>, k: K) {
             this[k] = v.get();
         }, res);
         return res;
@@ -934,7 +936,7 @@ export function initObservableClassPrototype(target: any) {
             enumerable: false,
             writable: false,
             configurable: false,
-            value: allocId()
+            value: allocId(),
         });
     }
     if (!("$bobx" in target)) {
@@ -942,10 +944,10 @@ export function initObservableClassPrototype(target: any) {
             enumerable: false,
             writable: true,
             configurable: true,
-            value: LazyClass
+            value: LazyClass,
         });
         if (!("toJSON" in target)) {
-            target.toJSON = function(this: IAtom) {
+            target.toJSON = function (this: IAtom) {
                 return this.$bobx;
             };
         }
@@ -958,7 +960,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
         return {
             configurable: true,
             enumerable: false,
-            get: function(this: IAtom) {
+            get: function (this: IAtom) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
                     let behind = asObservableClass(this);
@@ -967,7 +969,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
                 }
                 return val.get();
             },
-            set: function(this: IAtom, value: any) {
+            set: function (this: IAtom, value: any) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
                     let behind = asObservableClass(this);
@@ -976,7 +978,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
                 } else {
                     val.set(value);
                 }
-            }
+            },
         };
     };
 }
@@ -1058,7 +1060,7 @@ observable.ref.struct = refStructDecorator;
 
 let bobxRootCtx: b.IBobrilCacheNode | undefined = undefined;
 
-b.addRoot(root => {
+b.addRoot((root) => {
     bobxRootCtx = root.n;
     return undefined;
 });
@@ -1101,7 +1103,7 @@ export const enum ComputedState {
     Scope,
     PermanentlyDead,
     Waiting,
-    Zombie
+    Zombie,
 }
 
 export class CaughtException {
@@ -1110,7 +1112,7 @@ export class CaughtException {
 
 function buryWholeDeadSet() {
     if (buryDeadSet.size > 0) {
-        buryDeadSet.forEach(v => {
+        buryDeadSet.forEach((v) => {
             v.buryIfDead();
         });
         buryDeadSet.clear();
@@ -1177,7 +1179,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
                 let usedBy = this.usedBy;
                 if (usedBy !== undefined) {
                     let usedByBobrilNode = false;
-                    usedBy.forEach(use => {
+                    usedBy.forEach((use) => {
                         if (isIBobxComputed(use)) use.softInvalidate();
                         else usedByBobrilNode = true;
                     });
@@ -1203,7 +1205,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
             let usedBy = this.usedBy;
             if (usedBy !== undefined) {
                 let usedByBobrilNode = false;
-                usedBy.forEach(use => {
+                usedBy.forEach((use) => {
                     if (isIBobxComputed(use)) use.softInvalidate();
                     else usedByBobrilNode = true;
                 });
@@ -1223,7 +1225,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         let using = this.using;
         if (using !== undefined) {
             this.using = undefined;
-            using.forEach(v => {
+            using.forEach((v) => {
                 if (isIBobxComputed(v)) {
                     v.unmarkUsedBy(this.atomId);
                 } else {
@@ -1237,7 +1239,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         let using = this.using;
         if (using !== undefined) {
             this.using = undefined;
-            using.forEach(v => {
+            using.forEach((v) => {
                 if (isIBobxComputed(v)) {
                     v.unmarkUsedBy(this.atomId);
                     v.buryIfDead();
@@ -1332,7 +1334,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
     invalidate() {
         const usedBy = this.usedBy;
         if (usedBy !== undefined) {
-            usedBy.forEach(function(this: ComputedImpl, use) {
+            usedBy.forEach(function (this: ComputedImpl, use) {
                 if (isIBobxComputed(use)) use.invalidateBy(this.atomId);
                 else {
                     use.$bobxCtx!.delete(this.atomId);
@@ -1356,7 +1358,7 @@ export class ComputedImpl implements IBobxComputed, b.IDisposable {
         if (state === ComputedState.NeedDepsRecheck) {
             const using = this.using;
             if (using !== undefined) {
-                using.forEach(v => {
+                using.forEach((v) => {
                     if (isIBobxComputed(v)) {
                         v.updateIfNeeded();
                     }
@@ -1474,6 +1476,7 @@ export interface IComputedOptions<Params, Output> {
     isEqual?(a: Params, b: Params): boolean;
     onFree?(output: Output | undefined, params: Params): void;
     comparator?: IEqualsComparer<Output>;
+    zombieTime?: number;
 }
 
 const defaultComputedOptions: IComputedOptions<any[], any> = {
@@ -1486,7 +1489,7 @@ const defaultComputedOptions: IComputedOptions<any[], any> = {
         }
         return true;
     },
-    comparator: equalsIncludingNaN
+    comparator: equalsIncludingNaN,
 };
 
 export interface IComputedFactory {
@@ -1518,7 +1521,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
             return {
                 configurable: true,
                 enumerable: false,
-                get: function(this: IAtom) {
+                get: function (this: IAtom) {
                     let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
@@ -1527,7 +1530,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                     }
                     return val.run();
                 },
-                set: descriptor.set
+                set: descriptor.set,
             };
         } else {
             const fn = descriptor.value;
@@ -1538,7 +1541,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
             return {
                 configurable: true,
                 enumerable: false,
-                value: function(this: IAtom) {
+                value: function (this: IAtom) {
                     let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
                         let behind = asObservableClass(this);
@@ -1546,7 +1549,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                         (behind as any)[propName] = val;
                     }
                     return val.run();
-                }
+                },
             };
         }
     };
@@ -1587,7 +1590,7 @@ function buildParametricCompute<T>(
     return {
         configurable: true,
         enumerable: false,
-        value: function(this: IAtom) {
+        value: function (this: IAtom) {
             let val: ParametricComputedMap | undefined = this.$bobx[propName];
             if (val === undefined) {
                 let behind = asObservableClass(this);
@@ -1595,7 +1598,7 @@ function buildParametricCompute<T>(
                 (behind as any)[propName] = val;
             }
             return val.run(arraySlice.call(arguments));
-        }
+        },
     };
 }
 
@@ -1697,7 +1700,7 @@ export class ParametricComputedMap implements b.IDisposable {
 
     dispose() {
         this.disposing = true;
-        this.map.forEach(row => {
+        this.map.forEach((row) => {
             for (let i = 0, l = row.length; i < l; i++) {
                 const item = row[i];
                 item.dispose();
@@ -1873,7 +1876,7 @@ export function createTransformer<A, B>(
     factory: (source: A) => B,
     onFree?: (target: B | undefined, source: A) => void
 ): (source: A) => B {
-    const factoryOnThis = function(this: A): B {
+    const factoryOnThis = function (this: A): B {
         return factory(this);
     };
     const map = new Map<A, ComputedImpl>();
@@ -1991,7 +1994,7 @@ export class ReactionImpl implements IBobxComputed, b.IDisposable {
         let using = this.using;
         if (using !== undefined) {
             this.using = undefined;
-            using.forEach(v => {
+            using.forEach((v) => {
                 if (isIBobxComputed(v)) {
                     v.unmarkUsedBy(this.atomId);
                 } else {
@@ -2005,7 +2008,7 @@ export class ReactionImpl implements IBobxComputed, b.IDisposable {
         let using = this.using;
         if (using !== undefined) {
             this.using = undefined;
-            using.forEach(v => {
+            using.forEach((v) => {
                 if (isIBobxComputed(v)) {
                     v.unmarkUsedBy(this.atomId);
                     v.buryIfDead();
@@ -2065,7 +2068,7 @@ export class ReactionImpl implements IBobxComputed, b.IDisposable {
         if (state === ComputedState.NeedDepsRecheck) {
             const using = this.using;
             if (using !== undefined) {
-                using.forEach(v => {
+                using.forEach((v) => {
                     if (isIBobxComputed(v)) {
                         v.updateIfNeeded();
                     }
@@ -2153,7 +2156,7 @@ export function autorun(view: (disposable: b.IDisposable) => void): b.IDisposabl
 }
 
 export function when(predicate: () => boolean, effect: () => void): b.IDisposable {
-    return autorun(d => {
+    return autorun((d) => {
         if (predicate()) {
             d.dispose();
             effect();
@@ -2173,10 +2176,10 @@ export function isPromiseLike(p: any): p is PromiseLike<any> {
 }
 
 class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
-    constructor(fn: Function, comparator: IEqualsComparer<any>) {
+    constructor(fn: Function, comparator: IEqualsComparer<any>, zombieTime: number | undefined) {
         super(fn, undefined, comparator);
         this.iterator = undefined;
-        this.zombieTime = 100;
+        this.zombieTime = zombieTime;
     }
 
     iterator: Iterator<any> | undefined;
@@ -2300,6 +2303,29 @@ class AsyncComputedImpl extends ComputedImpl implements IAsyncComputed<any> {
     }
 }
 
+class ParamAsyncComputedImpl extends AsyncComputedImpl {
+    owner: ParametricAsyncComputedMap;
+    hashCode: number;
+    params: any[];
+
+    constructor(fn: Function, owner: ParametricAsyncComputedMap, hashCode: number, params: any[]) {
+        super(fn, owner.comparator, owner.zombieTime);
+        this.owner = owner;
+        this.hashCode = hashCode;
+        this.params = params;
+    }
+
+    call(): Iterator<any> {
+        return this.fn.apply(undefined, this.params);
+    }
+
+    free() {
+        super.free();
+        this.state = ComputedState.PermanentlyDead;
+        this.owner.free(this);
+    }
+}
+
 // we skip promises that are the result of yielding promises (except if they use flowReturn)
 export type AsyncReturnType<G> = G extends Generator<infer Y, infer R, any>
     ? Y extends PromiseLike<any>
@@ -2312,16 +2338,104 @@ export type IfAllArePromiseYieldThenVoid<R> = Exclude<R, PromiseLike<any>> exten
     ? void
     : Exclude<R, PromiseLike<any>>;
 
-function buildAsyncComputed(comparator: IEqualsComparer<any>) {
-    return <T extends (...args: any[]) => Generator<any, any, any>>(
-        generator: T
-    ): ((...args: Parameters<T>) => IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined>) => {
-        if (generator.length != 0) {
-            throw new Error("Not implemented");
+class ParametricAsyncComputedMap implements b.IDisposable {
+    fn: Function;
+    map: Map<number, ParamAsyncComputedImpl[]>;
+    getHashCode: (params: any[]) => number;
+    isEqual: (a: any[], b: any[]) => boolean;
+    onFree?: (output: any | undefined, params: any[]) => void;
+    zombieTime: number | undefined;
+    comparator: IEqualsComparer<any>;
+    disposing: boolean;
+
+    constructor(fn: Function, options: IComputedOptions<any[], any>) {
+        this.fn = fn;
+        this.map = new Map();
+        this.getHashCode = options.getHashCode || defaultComputedOptions.getHashCode!;
+        this.isEqual = options.isEqual || defaultComputedOptions.isEqual!;
+        this.onFree = options.onFree;
+        this.comparator = options.comparator || defaultComputedOptions.comparator!;
+        this.zombieTime = options.zombieTime;
+        this.disposing = false;
+    }
+
+    run(params: any[]) {
+        const hashCode = this.getHashCode(params);
+        let row = this.map.get(hashCode);
+        let item: ParamAsyncComputedImpl | undefined = undefined;
+        if (row === undefined) {
+            item = new ParamAsyncComputedImpl(this.fn, this, hashCode, params);
+            row = [item];
+            this.map.set(hashCode, row);
+        } else {
+            const len = row.length;
+            for (var i = 0; i < len; i++) {
+                if (this.isEqual(params, row[i].params)) {
+                    item = row[i];
+                    break;
+                }
+            }
+            if (item === undefined) {
+                item = new ParamAsyncComputedImpl(this.fn, this, hashCode, params);
+                row.push(item);
+            }
         }
-        let res = new AsyncComputedImpl(generator, comparator);
-        return () => res.run();
-    };
+        return item.run();
+    }
+
+    free(item: ParamAsyncComputedImpl) {
+        if (this.onFree !== undefined) {
+            let target = item.value;
+            if (isCaughtException(target)) target = undefined;
+            this.onFree(target, item.params);
+        }
+        if (this.disposing) return;
+        const hashCode = item.hashCode;
+        const row = this.map.get(hashCode)!;
+        if (row.length == 1) {
+            this.map.delete(hashCode);
+        } else {
+            const index = row!.indexOf(item);
+            row.splice(index, 1);
+        }
+    }
+
+    dispose() {
+        this.disposing = true;
+        this.map.forEach((row) => {
+            for (let i = 0, l = row.length; i < l; i++) {
+                const item = row[i];
+                item.dispose();
+            }
+        });
+    }
 }
 
-export const asyncComputed = buildAsyncComputed(equalsIncludingNaN);
+export function asyncComputed<T extends (...args: any[]) => Generator<any, any, any>>(
+    generator: T,
+    options?: IComputedOptions<Parameters<T>, IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined>>
+): (...args: Parameters<T>) => IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined> {
+    if (generator.length != 0 || options != undefined) {
+        options ??= defaultComputedOptions;
+        var map = new ParametricAsyncComputedMap(generator, options);
+        return (...args: Parameters<T>) => map.run(args);
+    }
+    let res = new AsyncComputedImpl(generator, equalsIncludingNaN, 100);
+    return () => res.run();
+}
+
+export function useAsyncComputed<T extends (...args: any[]) => Generator<any, any, any>>(
+    generator: T,
+    options?: IComputedOptions<Parameters<T>, IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined>>
+): (...args: Parameters<T>) => IAsyncComputed<AsyncReturnType<ReturnType<T>> | undefined> {
+    const myHookId = b._allocHook();
+    const hooks = b._getHooks();
+    let hook = hooks[myHookId];
+    if (hook === undefined) {
+        const map = new ParametricAsyncComputedMap(generator, options ?? defaultComputedOptions);
+        hook = (...args: Parameters<T>) => map.run(args);
+        b.addDisposable(b.getCurrentCtx()!, map);
+        hooks[myHookId] = hook;
+    }
+    return hook;
+}
