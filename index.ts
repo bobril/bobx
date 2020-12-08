@@ -26,7 +26,7 @@ function addHiddenFinalProp(object: any, propName: string, value: any) {
 
 function makeNonEnumerable(object: any, propNames: string[]) {
     for (let i = 0; i < propNames.length; i++) {
-        addHiddenProp(object, propNames[i], object[propNames[i]]);
+        addHiddenProp(object, propNames[i]!, object[propNames[i]!]);
     }
 }
 
@@ -435,7 +435,7 @@ export class ObservableArray<T> extends StubArray {
         reserveArrayBuffer(length + newItems.length - deleteCount);
 
         for (let i = 0; i < newItems.length; i++) {
-            newItems[i] = this.$enhancer(newItems[i], undefined);
+            newItems[i] = this.$enhancer(newItems[i]!, undefined);
         }
         return this.$bobx.splice(index, deleteCount, ...newItems);
     }
@@ -485,7 +485,7 @@ export class ObservableArray<T> extends StubArray {
         this.$atom.markUsage();
         const values = this.$bobx,
             l = values.length;
-        for (let i = fromIndex; i < l; i++) if (predicate.call(thisArg, values[i], i, this)) return values[i];
+        for (let i = fromIndex; i < l; i++) if (predicate.call(thisArg, values[i]!, i, this)) return values[i];
         return undefined;
     }
 
@@ -493,7 +493,7 @@ export class ObservableArray<T> extends StubArray {
         const values = this.$bobx;
         if (items.length == 0) return values.length;
         for (let i = 0; i < items.length; i++) {
-            items[i] = this.$enhancer(items[i], undefined);
+            items[i] = this.$enhancer(items[i]!, undefined);
         }
         values.push.apply(values, items);
         this.$atom.invalidate();
@@ -559,14 +559,14 @@ export class ObservableArray<T> extends StubArray {
             newItems = [
                 ...oldItems.slice(0, fromIndex),
                 ...oldItems.slice(fromIndex + 1, toIndex + 1),
-                oldItems[fromIndex],
+                oldItems[fromIndex]!,
                 ...oldItems.slice(toIndex + 1),
             ];
         } else {
             // toIndex < fromIndex
             newItems = [
                 ...oldItems.slice(0, toIndex),
-                oldItems[fromIndex],
+                oldItems[fromIndex]!,
                 ...oldItems.slice(toIndex, fromIndex),
                 ...oldItems.slice(fromIndex + 1),
             ];
@@ -771,8 +771,8 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         } else if (isPlainObject(init)) {
             const keys = Object.keys(init);
             for (var i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                this.set((key as any) as K, (init as IKeyValueMap<V>)[key]);
+                const key = keys[i]!;
+                this.set((key as any) as K, (init as IKeyValueMap<V>)[key]!);
             }
         } else if (init != null) throw new Error("Cannot initialize map from " + init);
     }
@@ -1084,7 +1084,7 @@ const previousReallyBeforeFrame = b.setReallyBeforeFrame(() => {
         if (list.length == 0) break;
         updateNextFrameList = [];
         for (let i = 0; i < list.length; i++) {
-            list[i].updateIfNeededWithoutResurrecting();
+            list[i]!.updateIfNeededWithoutResurrecting();
         }
     }
     if (iteration >= maxIterations) {
@@ -1668,7 +1668,7 @@ export class ParametricComputedMap implements b.IDisposable {
         } else {
             const len = row.length;
             for (var i = 0; i < len; i++) {
-                if (this.isEqual(params, row[i].params)) {
+                if (this.isEqual(params, row[i]!.params)) {
                     item = row[i];
                     break;
                 }
@@ -1702,8 +1702,7 @@ export class ParametricComputedMap implements b.IDisposable {
         this.disposing = true;
         this.map.forEach((row) => {
             for (let i = 0, l = row.length; i < l; i++) {
-                const item = row[i];
-                item.dispose();
+                row[i]!.dispose();
             }
         });
     }
@@ -2370,7 +2369,7 @@ class ParametricAsyncComputedMap implements b.IDisposable {
         } else {
             const len = row.length;
             for (var i = 0; i < len; i++) {
-                if (this.isEqual(params, row[i].params)) {
+                if (this.isEqual(params, row[i]!.params)) {
                     item = row[i];
                     break;
                 }
@@ -2404,8 +2403,7 @@ class ParametricAsyncComputedMap implements b.IDisposable {
         this.disposing = true;
         this.map.forEach((row) => {
             for (let i = 0, l = row.length; i < l; i++) {
-                const item = row[i];
-                item.dispose();
+                row[i]!.dispose();
             }
         });
     }

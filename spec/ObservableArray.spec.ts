@@ -38,13 +38,13 @@ describe("ObservableArray", () => {
         let a = observable([] as Array<{ b: number }>);
         a.push({ b: 1 }, { b: 2 });
         expect(isObservable(a[1])).toBe(true);
-        expect(a[1].b).toBe(2);
+        expect(a[1]!.b).toBe(2);
     });
 
     it("splice the splice", () => {
         let a = observable([1, 2, 3]);
         let index = 1;
-        a.splice(index - 1, 0, a.splice(index, 1)[0]);
+        a.splice(index - 1, 0, a.splice(index, 1)[0]!);
         expect(a[0]).toBe(2);
         expect(a[1]).toBe(1);
         expect(a[2]).toBe(3);

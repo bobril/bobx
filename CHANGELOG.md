@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.29.0
+
+Async Computed feature should be usable.
+
+Make it compatible with noUncheckedIndexedAccess.
+
 ## 0.28.1
 
 Fixed compatibility with Bobril 14.15.0

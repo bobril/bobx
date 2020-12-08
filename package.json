@@ -1,6 +1,6 @@
 {
     "name": "bobx",
-    "version": "0.28.1",
+    "version": "0.29.0",
     "description": "Mobx like library for Bobril",
     "main": "index.js",
     "types": "index.d.ts",
@@ -23,6 +23,7 @@
             "noUnusedParameters": true,
             "noImplicitReturns": true,
             "noFallthroughCasesInSwitch": true,
+            "noUncheckedIndexedAccess": true,
             "strictNullChecks": true,
             "strict": true
         }

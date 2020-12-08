@@ -22,6 +22,7 @@
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "preserveConstEnums": false,
@@ -36,7 +37,7 @@
     "resolveJsonModule": true
   },
   "files": [
-    "C:/Users/boris/.bbcore/tools/jasmine330.d.ts"
+    "C:/Users/b.letocha/.bbcore/tools/jasmine330.d.ts"
   ],
   "include": [
     "**/*"
