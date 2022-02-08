@@ -1,4 +1,4 @@
-import { deepEqual, observable } from '../index';
+import { deepEqual, observable } from "../index";
 
 describe("deepEqual", () => {
     it("primitives", () => {

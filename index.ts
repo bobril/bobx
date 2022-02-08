@@ -6,15 +6,6 @@ function equalsIncludingNaN(a: any, b: any) {
     return a === b || (a !== a && b !== b); // it correctly returns true for NaN and NaN
 }
 
-function addHiddenProp(object: any, propName: string, value: any) {
-    Object.defineProperty(object, propName, {
-        enumerable: false,
-        writable: true,
-        configurable: true,
-        value,
-    });
-}
-
 function addHiddenFinalProp(object: any, propName: string, value: any) {
     Object.defineProperty(object, propName, {
         enumerable: false,
@@ -22,12 +13,6 @@ function addHiddenFinalProp(object: any, propName: string, value: any) {
         configurable: true,
         value,
     });
-}
-
-function makeNonEnumerable(object: any, propNames: string[]) {
-    for (let i = 0; i < propNames.length; i++) {
-        addHiddenProp(object, propNames[i]!, object[propNames[i]!]);
-    }
 }
 
 export type AtomId = number;
@@ -114,11 +99,11 @@ export class ObservableValue<T> implements IObservableValue<T>, IAtom {
     prop(): b.IProp<T> {
         let p = this._prop;
         if (p === undefined) {
-            p = (value?: T) => {
-                if (value === undefined) {
+            p = (...value: [T?]) => {
+                if (value.length === 0) {
                     return this.get();
                 }
-                this.set(value);
+                this.set(value[0]!);
                 return this.value;
             };
             this._prop = p;
@@ -359,69 +344,48 @@ function defineObservableProperty(
 
 // ARRAY
 
-// Detects bug in safari 9.1.1 (or iOS 9 safari mobile). See MobX #364
-const safariPrototypeSetterInheritanceBug = (() => {
-    let v = false;
-    const p = {};
-    Object.defineProperty(p, "0", {
-        set: () => {
-            v = true;
-        },
-    });
-    (Object.create(p) as any)["0"] = 1;
-    return v === false;
-})();
-
 export interface IObservableArray<T> extends Array<T> {
-    clear(): T[];
-    replace(newItems: T[]): T[];
-    find(
-        predicate: (item: T, index: number, array: IObservableArray<T>) => boolean,
-        thisArg?: any,
-        fromIndex?: number
-    ): T;
+    clear(): this;
+    replace(newItems: T[]): this;
     remove(value: T): boolean;
     move(fromIndex: number, toIndex: number): void;
 }
 
-/**
- * This array buffer contains two lists of properties, so that all arrays
- * can recycle their property definitions, which significantly improves performance of creating
- * properties on the fly.
- */
-let observableArrayPropCount = 0;
+const ArrayInternalSymbol = Symbol("BobxInternal");
+/// Proxy, enhancer, atom
+type InternalArrayMarker<T> = [
+    IObservableArray<T>,
+    IEnhancer<T>,
+    ObservableValue<any>,
+    Array<any> & InternalTargetArray<any>
+];
+type InternalTargetArray<T> = { [ArrayInternalSymbol]: InternalArrayMarker<T> };
+const bobxArrayMethods = new Map<
+    string,
+    (this: IObservableArray<any> & InternalTargetArray<any>, ...args: any[]) => any
+>();
 
-// Typescript workaround to make sure ObservableArray extends Array
-export class StubArray {}
-StubArray.prototype = [];
-
-export class ObservableArray<T> extends StubArray {
-    $bobx: Array<T>;
-    $enhancer: IEnhancer<T>;
-    $atom: ObservableValue<any>;
-
-    constructor(initialValues: T[] | undefined, enhancer: IEnhancer<T>) {
-        super();
-
-        this.$enhancer = enhancer;
-        this.$atom = new ObservableValue<any>(null, referenceEnhancer);
-
-        if (initialValues && initialValues.length) {
-            reserveArrayBuffer(initialValues.length);
-            this.$bobx = initialValues.map((v) => enhancer(v, undefined));
-        } else {
-            this.$bobx = [];
-        }
-
-        if (safariPrototypeSetterInheritanceBug) {
-            // Seems that Safari won't use numeric prototype setter until any * numeric property is
-            // defined on the instance. After that it works fine, even if this property is deleted.
-            Object.defineProperty(this, "0", ENTRY_0);
-        }
+bobxArrayMethods.set("push", function (this: InternalTargetArray<any>, ...items: any[]): number {
+    const internal = this[ArrayInternalSymbol];
+    const values = internal[3];
+    const enhancer = internal[1];
+    if (items.length == 0) return values.length;
+    for (let i = 0; i < items.length; i++) {
+        items[i] = enhancer(items[i]!, undefined);
     }
+    values.push.apply(values, items);
+    internal[2].invalidate(); // atom
+    return values.length;
+});
 
-    splice(index?: number, deleteCount?: number, ...newItems: T[]): T[] {
-        const length = this.$bobx.length;
+bobxArrayMethods.set(
+    "splice",
+    function (this: InternalTargetArray<any>, index?: number, deleteCount?: number, ...newItems: any[]): any[] {
+        const internal = this[ArrayInternalSymbol];
+        const values = internal[3];
+        const enhancer = internal[1];
+
+        const length = values.length;
 
         if (index === undefined) index = 0;
         else if (index > length) index = length;
@@ -431,205 +395,199 @@ export class ObservableArray<T> extends StubArray {
         else if (deleteCount == null) deleteCount = 0;
         else deleteCount = Math.max(0, Math.min(deleteCount, length - index));
 
-        if (newItems.length > 0 || deleteCount > 0) this.$atom.invalidate();
-        reserveArrayBuffer(length + newItems.length - deleteCount);
+        if (newItems.length > 0 || deleteCount > 0) internal[2].invalidate();
+        else internal[2].markUsage(); // atom
 
         for (let i = 0; i < newItems.length; i++) {
-            newItems[i] = this.$enhancer(newItems[i]!, undefined);
+            newItems[i] = enhancer(newItems[i]!, undefined);
         }
-        return this.$bobx.splice(index, deleteCount, ...newItems);
+        return values.splice(index, deleteCount, ...newItems);
     }
+);
 
-    setArrayLength(newLength: number) {
-        let currentLength = this.$bobx.length;
-        if (newLength === currentLength) return;
-        else if (newLength > currentLength) this.splice(currentLength, 0, ...new Array(newLength - currentLength));
-        else this.splice(newLength, currentLength - newLength);
+bobxArrayMethods.set("clear", function (this: InternalTargetArray<any>): any[] {
+    return (this as any as IObservableArray<any>).splice(0);
+});
+
+bobxArrayMethods.set("unshift", function (this: InternalTargetArray<any>, ...items: any[]): number {
+    (this as any as IObservableArray<any>).splice(0, 0, ...items);
+    const internal = this[ArrayInternalSymbol];
+    return internal[3].length;
+});
+
+bobxArrayMethods.set("remove", function (this: InternalTargetArray<any>, value: any): boolean {
+    const idx = (this as any as IObservableArray<any>).indexOf(value);
+    if (idx > -1) {
+        (this as any as IObservableArray<any>).splice(idx, 1);
+        return true;
     }
+    return false;
+});
 
-    clear(): T[] {
-        return this.splice(0);
-    }
+bobxArrayMethods.set("move", function (this: InternalTargetArray<any>, fromIndex: number, toIndex: number): void {
+    const oldItems = (this as any).$bobx as any[];
 
-    concat(...arrays: T[][]): T[] {
-        this.$atom.markUsage();
-        return Array.prototype.concat.apply(
-            this.$bobx,
-            arrays.map((a) => (isObservableArray(a) ? ((a as any) as ObservableArray<T>).$bobx : a))
-        );
-    }
-
-    replace(newItems: T[]) {
-        this.$atom.invalidate();
-
-        return this.splice(0, this.$bobx.length, ...newItems);
-    }
-
-    /**
-     * Converts this array back to a (shallow) JavaScript structure.
-     */
-    toJS(): T[] {
-        return (this as any).slice();
-    }
-
-    toJSON(): T[] {
-        // Used by JSON.stringify
-        return this.$bobx;
-    }
-
-    find(
-        predicate: (item: T, index: number, array: ObservableArray<T>) => boolean,
-        thisArg?: any,
-        fromIndex = 0
-    ): T | undefined {
-        this.$atom.markUsage();
-        const values = this.$bobx,
-            l = values.length;
-        for (let i = fromIndex; i < l; i++) if (predicate.call(thisArg, values[i]!, i, this)) return values[i];
-        return undefined;
-    }
-
-    push(...items: T[]): number {
-        const values = this.$bobx;
-        if (items.length == 0) return values.length;
-        for (let i = 0; i < items.length; i++) {
-            items[i] = this.$enhancer(items[i]!, undefined);
-        }
-        values.push.apply(values, items);
-        this.$atom.invalidate();
-        reserveArrayBuffer(values.length);
-        return values.length;
-    }
-
-    pop(): T | undefined {
-        return this.splice(Math.max(this.$bobx.length - 1, 0), 1)[0];
-    }
-
-    shift(): T | undefined {
-        return this.splice(0, 1)[0];
-    }
-
-    unshift(...items: T[]): number {
-        this.splice(0, 0, ...items);
-        return this.$bobx.length;
-    }
-
-    reverse(): T[] {
-        this.$atom.invalidate();
-        let values = this.$bobx;
-        values.reverse.apply(values, arguments as any);
-        return this as any;
-    }
-
-    sort(_compareFn?: (a: T, b: T) => number): T[] {
-        this.$atom.invalidate();
-        let values = this.$bobx;
-        values.sort.apply(values, arguments as any);
-        return this as any;
-    }
-
-    remove(value: T): boolean {
-        const idx = this.$bobx.indexOf(value);
-        if (idx > -1) {
-            this.splice(idx, 1);
-            return true;
-        }
-        return false;
-    }
-
-    private checkIndex(index: number) {
+    function checkIndex(index: number) {
         if (index < 0) {
             throw new Error(`Array index out of bounds: ${index} is negative`);
         }
-        const length = this.$bobx.length;
+        const length = oldItems.length;
         if (index >= length) {
             throw new Error(`Array index out of bounds: ${index} is not smaller than ${length}`);
         }
     }
 
-    move(fromIndex: number, toIndex: number): void {
-        this.checkIndex(fromIndex);
-        this.checkIndex(toIndex);
-        if (fromIndex === toIndex) {
-            return;
-        }
-        const oldItems = this.$bobx;
-        let newItems: T[];
-        if (fromIndex < toIndex) {
-            newItems = [
-                ...oldItems.slice(0, fromIndex),
-                ...oldItems.slice(fromIndex + 1, toIndex + 1),
-                oldItems[fromIndex]!,
-                ...oldItems.slice(toIndex + 1),
-            ];
-        } else {
-            // toIndex < fromIndex
-            newItems = [
-                ...oldItems.slice(0, toIndex),
-                oldItems[fromIndex]!,
-                ...oldItems.slice(toIndex, fromIndex),
-                ...oldItems.slice(fromIndex + 1),
-            ];
-        }
-        this.replace(newItems);
+    checkIndex(fromIndex);
+    checkIndex(toIndex);
+    if (fromIndex === toIndex) {
+        return;
     }
-
-    toString(): string {
-        this.$atom.markUsage();
-        return Array.prototype.toString.apply(this.$bobx, arguments as any);
+    let newItems: any[];
+    if (fromIndex < toIndex) {
+        newItems = [
+            ...oldItems.slice(0, fromIndex),
+            ...oldItems.slice(fromIndex + 1, toIndex + 1),
+            oldItems[fromIndex]!,
+            ...oldItems.slice(toIndex + 1),
+        ];
+    } else {
+        // toIndex < fromIndex
+        newItems = [
+            ...oldItems.slice(0, toIndex),
+            oldItems[fromIndex]!,
+            ...oldItems.slice(toIndex, fromIndex),
+            ...oldItems.slice(fromIndex + 1),
+        ];
     }
-}
-
-/**
- * We don't want those to show up in `for (const key in array)` ...
- */
-makeNonEnumerable(ObservableArray.prototype, [
-    "constructor",
-    "intercept",
-    "observe",
-    "clear",
-    "concat",
-    "replace",
-    "toJS",
-    "toJSON",
-    "peek",
-    "find",
-    "splice",
-    "push",
-    "pop",
-    "shift",
-    "unshift",
-    "reverse",
-    "sort",
-    "remove",
-    "move",
-    "toString",
-    "toLocaleString",
-    "setArrayLength",
-    "checkIndex",
-    "$atom",
-    "$bobx",
-    "$enhancer",
-]);
-
-Object.defineProperty(ObservableArray.prototype, "length", {
-    enumerable: false,
-    configurable: true,
-    get: function (this: ObservableArray<any>): number {
-        this.$atom.markUsage();
-        return this.$bobx.length;
-    },
-    set: function (this: ObservableArray<any>, newLength: number) {
-        this.setArrayLength(newLength);
-    },
+    (this as any as IObservableArray<any>).replace(newItems);
 });
+
+bobxArrayMethods.set("fill", function (this: InternalTargetArray<any>, value: any, start?: number, end?: number): any {
+    const internal = this[ArrayInternalSymbol];
+    const values = internal[3];
+    const enhancer = internal[1];
+    value = enhancer(value, undefined);
+
+    const length = values.length;
+
+    start = start || 0;
+    end = end === undefined ? length : end;
+
+    let i;
+    let l;
+
+    if (start < 0) {
+        i = Math.max(length + start, 0);
+    } else {
+        i = Math.min(start, length);
+    }
+
+    if (end < 0) {
+        l = Math.max(length + end, 0);
+    } else {
+        l = Math.min(end, length);
+    }
+
+    if (i < l) {
+        internal[2].invalidate();
+
+        for (; i < l; i++) {
+            values[i] = value;
+        }
+    }
+
+    return this;
+});
+
+bobxArrayMethods.set("replace", function (this: InternalTargetArray<any>, newItems: any[]): any[] {
+    return (this as any as IObservableArray<any>).splice(0, 1e10, ...newItems);
+});
+
+bobxArrayMethods.set("toJS", function (this: InternalTargetArray<any>): any[] {
+    return (this as any).$bobx.slice();
+});
+
+bobxArrayMethods.set("toJSON", function (this: InternalTargetArray<any>): any[] {
+    return (this as any).$bobx;
+});
+
+const ArrayProxyHandler: ProxyHandler<Array<any> & InternalTargetArray<any>> = {
+    get(target: Array<any> & InternalTargetArray<any>, prop: string | symbol, _receiver: any) {
+        if (b.isString(prop)) {
+            var propIdx = +prop;
+            if (!isNaN(propIdx)) {
+                const internal = target[ArrayInternalSymbol];
+                internal[2].markUsage();
+                return target[prop as any];
+            }
+            if (prop === "length") {
+                const internal = target[ArrayInternalSymbol];
+                internal[2].markUsage();
+                return target.length;
+            }
+            if (prop === "$bobx") {
+                return target;
+            }
+            return bobxArrayMethods.get(prop);
+        }
+        return (target as { [name: string | symbol]: any })[prop];
+    },
+    set(target: Array<any> & InternalTargetArray<any>, prop: string | symbol, value: any, _receiver: any): boolean {
+        if (b.isString(prop)) {
+            var propIdx = +prop;
+            if (!isNaN(propIdx)) {
+                const internal = target[ArrayInternalSymbol];
+                const oldValue = target[propIdx];
+                value = internal[1](value, oldValue); // enhancer
+                const changed = value !== oldValue;
+                if (changed) {
+                    internal[2].invalidate(); // atom
+                    target[propIdx] = value;
+                }
+                return true;
+            }
+            if (prop === "length") {
+                const internal = target[ArrayInternalSymbol];
+                const oldValue = target.length;
+                const changed = value !== oldValue;
+                if (changed) {
+                    internal[2].invalidate(); // atom
+                    target.length = value;
+                }
+                return true;
+            }
+        }
+        return false;
+    },
+};
+
+function makeObservableArray<T>(target: Array<T>, enhancer: IEnhancer<T>): IObservableArray<T> {
+    target = target.map((v) => enhancer(v, undefined));
+    let internal = [
+        new Proxy(target, ArrayProxyHandler) as IObservableArray<T>,
+        enhancer,
+        new ObservableValue<any>(null, referenceEnhancer),
+        target,
+    ] as const;
+    Object.defineProperty(target, ArrayInternalSymbol, {
+        value: internal,
+        enumerable: false,
+        writable: false,
+        configurable: false,
+    });
+    return internal[0]; // proxy
+}
 
 // Wrap function from prototype
 [
+    "find",
+    "concat",
     "every",
     "filter",
     "forEach",
+    "includes",
     "indexOf",
+    "flat",
     "join",
     "lastIndexOf",
     "map",
@@ -637,83 +595,48 @@ Object.defineProperty(ObservableArray.prototype, "length", {
     "reduceRight",
     "slice",
     "some",
+    "keys",
+    "values",
+    "entries",
+    "toString",
+    "toLocaleString",
 ].forEach((funcName) => {
     const baseFunc = (Array.prototype as any)[funcName];
-    addHiddenProp(ObservableArray.prototype, funcName, function (this: ObservableArray<any>) {
-        this.$atom.markUsage();
-        return baseFunc.apply(this.$bobx, arguments);
+    bobxArrayMethods.set(funcName, function (this: InternalTargetArray<any>, ...args: any[]): any {
+        const internal = this[ArrayInternalSymbol];
+        internal[2].markUsage(); // atom
+        return baseFunc.apply(internal[3], args); // values
     });
 });
 
-const ENTRY_0 = {
-    configurable: true,
-    enumerable: false,
-    set: createArraySetter(0),
-    get: createArrayGetter(0),
-};
-
-function createArrayBufferItem(index: number) {
-    const set = createArraySetter(index);
-    const get = createArrayGetter(index);
-    Object.defineProperty(ObservableArray.prototype, "" + index, {
-        enumerable: false,
-        configurable: true,
-        set,
-        get,
+["pop", "shift"].forEach((funcName) => {
+    const baseFunc = (Array.prototype as any)[funcName];
+    bobxArrayMethods.set(funcName, function (this: InternalTargetArray<any>, ...args: any[]): any {
+        const internal = this[ArrayInternalSymbol];
+        internal[2].invalidate(); // atom
+        return baseFunc.apply(internal[3], args); // values
     });
-}
+});
 
-function createArraySetter(index: number) {
-    return function <T>(this: ObservableArray<any>, newValue: T) {
-        const values = this.$bobx;
-        if (index < values.length) {
-            // update at index in range
-            const oldValue = values[index];
-            newValue = this.$enhancer(newValue, oldValue);
-            const changed = newValue !== oldValue;
-            if (changed) {
-                this.$atom.invalidate();
-                values[index] = newValue;
-            }
-        } else if (index === values.length) {
-            // add a new item
-            this.push(newValue);
-        } else throw new Error(`Array index out of bounds, ${index} is larger than ${values.length}`);
-    };
-}
-
-function createArrayGetter(index: number) {
-    return function (this: ObservableArray<any>) {
-        const values = this.$bobx;
-        this.$atom.markUsage();
-        if (index < values.length) {
-            return values[index];
-        }
-        return undefined;
-    };
-}
-
-function reserveArrayBuffer(max: number) {
-    max++;
-    if (observableArrayPropCount >= max) return;
-    max = Math.max(Math.ceil(observableArrayPropCount * 1.5), max);
-    for (let index = observableArrayPropCount; index < max; index++) createArrayBufferItem(index);
-    observableArrayPropCount = max;
-}
-
-reserveArrayBuffer(100);
+["reverse", "sort"].forEach((funcName) => {
+    const baseFunc = (Array.prototype as any)[funcName];
+    bobxArrayMethods.set(funcName, function (this: InternalTargetArray<any>, ...args: any[]): any {
+        const internal = this[ArrayInternalSymbol];
+        internal[2].invalidate(); // atom
+        baseFunc.apply(internal[3], args); // values
+        return this;
+    });
+});
 
 export function isObservableArray(thing: any): thing is IObservableArray<any> {
-    return isObject(thing) && b.isArray(thing.$bobx);
+    return b.isArray(thing) && (thing as any).$bobx !== undefined;
 }
 
 function isArrayLike<T>(
     thing: T | {}
 ): thing is T extends readonly any[] ? (unknown extends T ? never : readonly any[]) : any[] {
-    return b.isArray(thing) || isObservableArray(thing);
+    return b.isArray(thing);
 }
-
-b.setIsArrayVdom(isArrayLike);
 
 const ObservableMapMarker = 0;
 const ComputedMarker = 1;
@@ -772,7 +695,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
             const keys = Object.keys(init);
             for (var i = 0; i < keys.length; i++) {
                 const key = keys[i]!;
-                this.set((key as any) as K, (init as IKeyValueMap<V>)[key]!);
+                this.set(key as any as K, (init as IKeyValueMap<V>)[key]!);
             }
         } else if (init != null) throw new Error("Cannot initialize map from " + init);
     }
@@ -867,7 +790,7 @@ function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue) return oldValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue as any, deepEnhancer) as any;
+    if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, deepEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
@@ -884,7 +807,7 @@ function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (newValue === oldValue) return oldValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue as any, referenceEnhancer) as any;
+    if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, referenceEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, referenceEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
@@ -901,7 +824,7 @@ function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (deepEqual(newValue, oldValue)) return oldValue!;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
-    if (b.isArray(newValue)) return new ObservableArray(newValue as any, deepStructEnhancer) as any;
+    if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, deepStructEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepStructEnhancer) as any;
     if (isPlainObject(newValue)) {
         let res = Object.create(Object.getPrototypeOf(newValue));
@@ -1712,7 +1635,7 @@ export function observableProp<T>(obj: Array<T>, key: number): b.IProp<T>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]>;
 export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[K]> {
     if (obj == null) throw new Error("observableProp parameter is " + obj);
-    let bobx = ((obj as any) as IAtom).$bobx;
+    let bobx = (obj as any as IAtom).$bobx;
     if (bobx === undefined) throw new Error("observableProp parameter is not observable: " + obj);
     if (bobx === ObservableMapMarker) throw new Error("observableProp parameter is observableMap");
     if (b.isArray(bobx)) {
