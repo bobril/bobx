@@ -750,11 +750,11 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
             return cont.prop();
         }
         this.$atom.markUsage();
-        return (value?: V) => {
-            if (value === undefined) {
+        return (...value: [V?]): V => {
+            if (value.length === 0) {
                 return this.get(key)!;
             }
-            this.set(key, value);
+            this.set(key, value[0]!);
             return this.get(key)!;
         };
     }
@@ -1628,15 +1628,12 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
     if (bobx === ObservableMapMarker) throw new Error("observableProp parameter is observableMap");
     if (b.isArray(bobx)) {
         // Does this pays off to cache and/or inline?
-        return (value?: any) => {
-            if (value !== undefined) {
-                obj[key] = value;
+        return (...value: [any?]) => {
+            if (value.length == 1) {
+                obj[key] = value[0];
             }
             return obj[key];
         };
-    }
-    if (Object.getPrototypeOf(bobx) === undefined) {
-        return (bobx[key] as ObservableValue<T[K]>).prop();
     }
     bobx = behindObservableClass(obj);
     let val = bobx[key];

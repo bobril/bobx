@@ -18,8 +18,20 @@ describe("ObservableObject", () => {
         let v = bobx.observable({ a: 1, b: "B" });
         let prop = bobx.observableProp(v, "b");
         expect(prop()).toBe("B");
+        expect(prop(undefined)).toBeUndefined();
+        expect(prop()).toBeUndefined();
         expect(prop("C")).toBe("C");
         expect(v.b).toBe("C");
+    });
+
+    it("creates prop for new properties", () => {
+        let v = bobx.observable({ a: 1, b: "B" }) as { a: number; b: string; c?: number };
+        let prop = bobx.observableProp(v, "c");
+        expect(prop()).toBe(undefined);
+        expect(prop(42)).toBe(42);
+        expect(v.c).toBe(42);
+        expect(prop(undefined)).toBeUndefined();
+        expect(v.c).toBeUndefined();
     });
 
     it("toJSON", () => {
