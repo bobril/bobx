@@ -1,4 +1,5 @@
-import { observable, observableProp, isObservable } from "../index";
+import * as b from "bobril";
+import { observable, observableProp, isObservable, reaction } from "../index";
 
 describe("ObservableArray", () => {
     it("construct", () => {
@@ -48,5 +49,24 @@ describe("ObservableArray", () => {
         expect(a[0]).toBe(2);
         expect(a[1]).toBe(1);
         expect(a[2]).toBe(3);
+    });
+
+    it("ObservableArray.some is observable", () => {
+        let a = observable([1, 2, 3]);
+        let count = 0;
+        let gotValue: boolean | undefined;
+        const r = reaction(
+            () => a.some((value) => value == 42),
+            (value) => {
+                count++;
+                gotValue = value;
+            }
+        );
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([1, false]);
+        a.push(42);
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([2, true]);
+        r.dispose();
     });
 });

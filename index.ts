@@ -211,15 +211,61 @@ function isPlainObject(value: any): value is object {
     return proto === Object.prototype || proto === null;
 }
 
-function asObservableObject(target: Object): ObservableObjectBehind {
-    let behind = (target as IAtom).$bobx;
-    if (behind !== undefined) return behind;
-    behind = Object.create(null);
-    addHiddenFinalProp(target, "$bobx", behind);
-    return behind;
+const hOP = {}.hasOwnProperty;
+
+const enhancerSymbol = Symbol("BobxEnhancer");
+
+const ObjectProxyHandler: ProxyHandler<any> = {
+    get(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol, _receiver: any) {
+        if (b.isString(prop)) {
+            if (prop === "$bobx") {
+                return target;
+            }
+            let v = target[prop];
+            if (v == undefined) {
+                var enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                v = new ObservableValue<any>(undefined, enhancer);
+                target[prop] = v;
+            }
+            return v.get();
+        }
+        return undefined;
+    },
+    set(
+        target: Record<string | symbol, ObservableValue<any>>,
+        prop: string | symbol,
+        value: any,
+        _receiver: any
+    ): boolean {
+        if (b.isString(prop)) {
+            if (prop === "$bobx") {
+                return false;
+            }
+            var v = target[prop];
+            if (v == undefined) {
+                var enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                v = new ObservableValue<any>(value, enhancer);
+                target[prop] = v;
+                return true;
+            }
+            v.set(value);
+            return true;
+        }
+        return false;
+    },
+};
+
+function createObservableObject(source: Object, enhancer: IEnhancer<any>): Object {
+    let target = {} as any;
+    target[enhancerSymbol] = enhancer;
+    for (let key in source) {
+        if (!hOP.call(source, key)) continue;
+        target[key] = new ObservableValue((source as any)[key], enhancer);
+    }
+    return new Proxy(target, ObjectProxyHandler);
 }
 
-export function asObservableClass(target: Object): ObservableObjectBehind {
+export function behindObservableClass(target: Object): Record<string, IObservableValue<any>> {
     let behind = (target as IAtom).$bobx;
     if (behind !== LazyClass) return behind;
     behind = {};
@@ -310,36 +356,6 @@ export function deepEqual(a: any, b: any): boolean {
         if (!deepEqual(a[prop], b[prop])) return false;
     }
     return aKeys == bKeys;
-}
-
-const observablePropertyConfigs: { [propName: string]: any } = Object.create(null);
-
-function generateObservablePropConfig(propName: string) {
-    const config = observablePropertyConfigs[propName];
-    if (config) return config;
-    return (observablePropertyConfigs[propName] = {
-        configurable: true,
-        enumerable: true,
-        get: function (this: IAtom) {
-            return this.$bobx[propName].get();
-        },
-        set: function (this: IAtom, value: any) {
-            this.$bobx[propName].set(value);
-        },
-    });
-}
-
-export type ObservableObjectBehind = { [prop: string]: IObservableValue<any> };
-
-function defineObservableProperty(
-    target: Object,
-    behind: ObservableObjectBehind,
-    propName: string,
-    newValue: any,
-    enhancer: IEnhancer<any>
-) {
-    behind[propName] = new ObservableValue(newValue, enhancer);
-    Object.defineProperty(target, propName, generateObservablePropConfig(propName));
 }
 
 // ARRAY
@@ -670,11 +686,9 @@ export interface IObservableMap<K, V> extends IMap<K, V> {
 export type IObservableMapInitialValues<K, V> = IMapEntries<K, V> | IKeyValueMap<V> | IMap<K, V> | Map<K, V>;
 
 export class ObservableMap<K, V> implements IObservableMap<K, V> {
-    _size: number;
-
     get size(): number {
         this.$atom.markUsage();
-        return this._size;
+        return this.$content.size;
     }
     $bobx!: 0;
     $enhancer: IEnhancer<V>;
@@ -685,7 +699,6 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         this.$enhancer = enhancer;
         this.$atom = new ObservableValue<any>(null, referenceEnhancer);
         this.$content = new Map();
-        this._size = 0;
         if (Array.isArray(init)) init.forEach(([key, value]) => this.set(key, value));
         else if (isObservableMap(init) || isES6Map(init)) {
             (init as IMap<K, V>).forEach(function (this: ObservableMap<K, V>, value: V, key: K) {
@@ -727,7 +740,6 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         }
         this.$atom.invalidate();
         this.$content.set(key, new ObservableValue(value, this.$enhancer));
-        this._size++;
         return this;
     }
 
@@ -748,11 +760,10 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
     }
 
     clear(): void {
-        if (this._size == 0) return;
         let c = this.$content;
+        if (c.size == 0) return;
         c.forEach((v) => v.invalidate());
         this.$atom.invalidate();
-        this._size = 0;
         this.$content.clear();
     }
 
@@ -762,7 +773,6 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         if (cont !== undefined) {
             cont.invalidate();
             this.$content.delete(key);
-            this._size--;
             return true;
         }
         return false;
@@ -792,14 +802,7 @@ function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isObservable(newValue)) return newValue;
     if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, deepEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepEnhancer) as any;
-    if (isPlainObject(newValue)) {
-        let res = Object.create(Object.getPrototypeOf(newValue));
-        let behind = asObservableObject(res);
-        for (let key in newValue as IKeyValueMap<any>) {
-            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], deepEnhancer);
-        }
-        return res;
-    }
+    if (isPlainObject(newValue)) return createObservableObject(newValue, deepEnhancer) as any as T;
     return newValue;
 }
 
@@ -809,14 +812,7 @@ function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isObservable(newValue)) return newValue;
     if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, referenceEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, referenceEnhancer) as any;
-    if (isPlainObject(newValue)) {
-        let res = Object.create(Object.getPrototypeOf(newValue));
-        let behind = asObservableObject(res);
-        for (let key in newValue as IKeyValueMap<any>) {
-            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], referenceEnhancer);
-        }
-        return res;
-    }
+    if (isPlainObject(newValue)) return createObservableObject(newValue, referenceEnhancer) as any as T;
     throw new Error("shallow observable cannot be used for primitive values");
 }
 
@@ -826,15 +822,7 @@ function deepStructEnhancer<T>(newValue: T, oldValue: T | undefined): T {
     if (isObservable(newValue)) return newValue;
     if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, deepStructEnhancer) as any as T;
     if (isES6Map(newValue)) return new ObservableMap(newValue, deepStructEnhancer) as any;
-    if (isPlainObject(newValue)) {
-        let res = Object.create(Object.getPrototypeOf(newValue));
-        let behind = asObservableObject(res);
-        for (let key in newValue as IKeyValueMap<any>) {
-            defineObservableProperty(res, behind, key, (newValue as IKeyValueMap<any>)[key], deepStructEnhancer);
-        }
-        return res;
-    }
-
+    if (isPlainObject(newValue)) return createObservableObject(newValue, deepStructEnhancer) as any as T;
     return newValue;
 }
 
@@ -886,7 +874,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
             get: function (this: IAtom) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
-                    let behind = asObservableClass(this);
+                    let behind = behindObservableClass(this);
                     val = new ObservableValue(undefined, enhancer);
                     behind[propName] = val;
                 }
@@ -895,7 +883,7 @@ function createDecoratorForEnhancer(enhancer: IEnhancer<any>) {
             set: function (this: IAtom, value: any) {
                 let val = this.$bobx[propName];
                 if (val === undefined) {
-                    let behind = asObservableClass(this);
+                    let behind = behindObservableClass(this);
                     val = new ObservableValue(value, enhancer);
                     behind[propName] = val;
                 } else {
@@ -1447,7 +1435,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                 get: function (this: IAtom) {
                     let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
-                        let behind = asObservableClass(this);
+                        let behind = behindObservableClass(this);
                         val = new ComputedImpl(fn, this, comparator);
                         (behind as any)[propName] = val;
                     }
@@ -1467,7 +1455,7 @@ function buildComputed<T>(comparator: IEqualsComparer<T>) {
                 value: function (this: IAtom) {
                     let val: ComputedImpl | undefined = this.$bobx[propName];
                     if (val === undefined) {
-                        let behind = asObservableClass(this);
+                        let behind = behindObservableClass(this);
                         val = new ComputedImpl(fn, this, comparator);
                         (behind as any)[propName] = val;
                     }
@@ -1516,7 +1504,7 @@ function buildParametricCompute<T>(
         value: function (this: IAtom) {
             let val: ParametricComputedMap | undefined = this.$bobx[propName];
             if (val === undefined) {
-                let behind = asObservableClass(this);
+                let behind = behindObservableClass(this);
                 val = new ParametricComputedMap(fn, this, options);
                 (behind as any)[propName] = val;
             }
@@ -1650,7 +1638,7 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
     if (Object.getPrototypeOf(bobx) === undefined) {
         return (bobx[key] as ObservableValue<T[K]>).prop();
     }
-    bobx = asObservableClass(obj);
+    bobx = behindObservableClass(obj);
     let val = bobx[key];
     if (val === undefined) {
         obj[key]; // Has side effect to create ObservableValue

@@ -6,6 +6,10 @@ Remove some obsolete workarounds, making it compatible with ES2016+.
 
 ObservableArray is now implemented using Proxy. It for example fixes Array.isArray returning true for ObservableArrays. Generally implementation should be on par with build-in Array.
 
+ObservableObject is now implemented using Proxy. It makes new properties automatically observable, fixing big gotcha with previous implementation.
+
+Small changes in public interface in very rarely used parts so probably it will not be even found.
+
 ## 0.29.0
 
 Async Computed feature should be usable.

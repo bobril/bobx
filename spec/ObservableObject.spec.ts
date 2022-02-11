@@ -1,3 +1,4 @@
+import * as b from "bobril";
 import * as bobx from "../index";
 
 describe("ObservableObject", () => {
@@ -25,5 +26,43 @@ describe("ObservableObject", () => {
         let o = { a: 1, b: "B" };
         let oo = bobx.observable(o);
         expect(JSON.stringify(oo)).toBe(JSON.stringify(o));
+    });
+
+    it("properties are observable", () => {
+        let v = bobx.observable({ a: 1, b: "B" });
+        let count = 0;
+        let gotValue: number | undefined;
+        const r = bobx.reaction(
+            () => v.a,
+            (value) => {
+                count++;
+                gotValue = value;
+            }
+        );
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([1, 1]);
+        v.a = 42;
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([2, 42]);
+        r.dispose();
+    });
+
+    it("new properties are automatically observable", () => {
+        let v = bobx.observable({ a: 1, b: "B" }) as { a: number; b: string; c?: number };
+        let count = 0;
+        let gotValue: number | undefined;
+        const r = bobx.reaction(
+            () => v.c,
+            (value) => {
+                count++;
+                gotValue = value;
+            }
+        );
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([1, undefined]);
+        v.c = 42;
+        b.syncUpdate();
+        expect([count, gotValue]).toEqual([2, 42]);
+        r.dispose();
     });
 });
