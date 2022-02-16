@@ -1,6 +1,6 @@
 {
     "name": "bobx",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Mobx like library for Bobril",
     "main": "index.js",
     "types": "index.d.ts",
@@ -17,11 +17,6 @@
     "bobril": {
         "jasmineVersion": "3.3",
         "compilerOptions": {
-            "lib": [
-                "ES2018",
-                "dom"
-            ],
-            "target": "ES2018",
             "noImplicitAny": true,
             "noImplicitThis": true,
             "noUnusedLocals": true,

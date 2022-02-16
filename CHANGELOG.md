@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.1
+
+Added missing findIndex method to observableArray.
+
 ## 1.0.0
 
 Remove some obsolete workarounds, making it compatible with ES2016+.

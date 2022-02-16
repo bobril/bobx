@@ -9,7 +9,7 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": [
-      "ES2018",
+      "es2019",
       "dom"
     ],
     "module": "commonjs",
@@ -27,11 +27,11 @@
     "sourceMap": true,
     "strict": true,
     "strictNullChecks": true,
-    "target": "es2018",
+    "target": "es2019",
     "resolveJsonModule": true
   },
   "files": [
-    "C:/Users/boris/.bbcore/tools/jasmine330.d.ts"
+    "C:/Users/b.letocha/.bbcore/tools/jasmine330.d.ts"
   ],
   "include": [
     "**/*"

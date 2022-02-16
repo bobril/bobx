@@ -597,6 +597,7 @@ function makeObservableArray<T>(target: Array<T>, enhancer: IEnhancer<T>): IObse
 // Wrap function from prototype
 [
     "find",
+    "findIndex",
     "concat",
     "every",
     "filter",
