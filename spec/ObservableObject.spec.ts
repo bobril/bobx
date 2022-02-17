@@ -77,4 +77,9 @@ describe("ObservableObject", () => {
         expect([count, gotValue]).toEqual([2, 42]);
         r.dispose();
     });
+
+    it("object prototype properties must be undefined", () => {
+        var v = bobx.observable({ a: 1 });
+        expect(v.constructor).toBe(undefined);
+    });
 });

@@ -224,7 +224,7 @@ const ObjectProxyHandler: ProxyHandler<any> = {
             let v = target[prop];
             if (v == undefined) {
                 var enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
-                v = new ObservableValue<any>(undefined, enhancer);
+                v = new ObservableValue<any>(v, enhancer);
                 target[prop] = v;
             }
             return v.get();
@@ -256,7 +256,7 @@ const ObjectProxyHandler: ProxyHandler<any> = {
 };
 
 function createObservableObject(source: Object, enhancer: IEnhancer<any>): Object {
-    let target = {} as any;
+    let target = Object.create(null) as any;
     target[enhancerSymbol] = enhancer;
     for (let key in source) {
         if (!hOP.call(source, key)) continue;

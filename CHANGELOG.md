@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.2
+
+ObservableObject should support Object prototype properties.
+
 ## 1.0.1
 
 Added missing findIndex method to observableArray.
