@@ -221,13 +221,16 @@ const ObjectProxyHandler: ProxyHandler<any> = {
             if (prop === "$bobx") {
                 return target;
             }
-            let v = target[prop];
-            if (v == undefined) {
-                var enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
-                v = new ObservableValue<any>(v, enhancer);
+            if (!hOP.call(target, prop)) {
+                if (prop in target) {
+                    return target[prop];
+                }
+                let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                let v = new ObservableValue<any>(undefined, enhancer);
                 target[prop] = v;
+                return v.get();
             }
-            return v.get();
+            return target[prop].get();
         }
         return undefined;
     },
@@ -241,14 +244,35 @@ const ObjectProxyHandler: ProxyHandler<any> = {
             if (prop === "$bobx") {
                 return false;
             }
-            var v = target[prop];
-            if (v == undefined) {
-                var enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
-                v = new ObservableValue<any>(value, enhancer);
+            if (!hOP.call(target, prop)) {
+                let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                let v = new ObservableValue<any>(value, enhancer);
                 target[prop] = v;
                 return true;
             }
-            v.set(value);
+            target[prop].set(value);
+            return true;
+        }
+        return false;
+    },
+    ownKeys(target: Record<string | symbol, ObservableValue<any>>): Array<string | symbol> {
+        return Object.getOwnPropertyNames(target).filter((v) => target[v].get() !== undefined);
+    },
+    defineProperty(): boolean {
+        return false;
+    },
+    deleteProperty(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol): boolean {
+        if (b.isString(prop)) {
+            if (prop === "$bobx") {
+                return false;
+            }
+            if (!hOP.call(target, prop)) {
+                let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                let v = new ObservableValue<any>(undefined, enhancer);
+                target[prop] = v;
+                return true;
+            }
+            target[prop].set(undefined);
             return true;
         }
         return false;
@@ -256,7 +280,7 @@ const ObjectProxyHandler: ProxyHandler<any> = {
 };
 
 function createObservableObject(source: Object, enhancer: IEnhancer<any>): Object {
-    let target = Object.create(null) as any;
+    let target = {} /*Object.create(Object.getPrototypeOf(source))*/ as any;
     target[enhancerSymbol] = enhancer;
     for (let key in source) {
         if (!hOP.call(source, key)) continue;

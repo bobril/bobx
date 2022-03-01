@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.3
+
+ObservableObject now iterates only properties which are not undefined. Also it preserve prototype. It makes Jasmine toEqual function correctly compare observable and normal object as equal.
+
 ## 1.0.2
 
 ObservableObject should support Object prototype properties.

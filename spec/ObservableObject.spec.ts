@@ -78,8 +78,13 @@ describe("ObservableObject", () => {
         r.dispose();
     });
 
-    it("object prototype properties must be undefined", () => {
+    it("object prototype properties must be object properties", () => {
         var v = bobx.observable({ a: 1 });
-        expect(v.constructor).toBe(undefined);
+        expect(v.constructor).toBe({}.constructor);
+    });
+
+    it("equals", () => {
+        let o = bobx.observable({ a: 1 });
+        expect(o).toEqual({ a: 1 });
     });
 });

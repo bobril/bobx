@@ -69,4 +69,10 @@ describe("ObservableArray", () => {
         expect([count, gotValue]).toEqual([2, true]);
         r.dispose();
     });
+
+    it("slice", () => {
+        let a = observable(["hi", { aa: "bb" }]);
+        let b = a.slice();
+        expect(b).toEqual(["hi", { aa: "bb" }]);
+    });
 });
