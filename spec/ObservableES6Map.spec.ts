@@ -61,6 +61,15 @@ describe("ObservableES6Map", () => {
         expect(a).toEqual(["a", 2, "b", 4]);
     });
 
+    it("keys", () => {
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
+
+        expect(Array.from(m.keys())).toEqual(["a", "b"]);
+    });
+
     it("clear", () => {
         let mm = new Map<string, number>();
         mm.set("a", 2);
