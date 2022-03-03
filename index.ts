@@ -693,6 +693,7 @@ export interface IMap<K, V> {
     get(key: K): V | undefined;
     has(key: K): boolean;
     set(key: K, value: V): this;
+    keys(): IterableIterator<K>;
     readonly size: number;
 }
 
@@ -801,6 +802,10 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
             return true;
         }
         return false;
+    }
+
+    keys(): IterableIterator<K> {
+        return this.$content.keys();
     }
 
     forEach(callbackfn: (value: V, index: K, map: IObservableMap<K, V>) => void, thisArg?: any): void {
