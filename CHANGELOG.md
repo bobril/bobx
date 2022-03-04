@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.4
+
+ObservableMap support `keys()`.
+
 ## 1.0.3
 
 ObservableObject now iterates only properties which are not undefined. Also it preserve prototype. It makes Jasmine toEqual function correctly compare observable and normal object as equal.
