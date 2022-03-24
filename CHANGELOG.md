@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 1.0.5
+
+ObservableObject now iterates all written properties including which have undefined value, making it behave like normal object.
+Just reading unknown property will not create it anymore, but it still correctly subscribe to any possible future creation of such property through setter.
+
 ## 1.0.4
 
 ObservableMap support `keys()`.

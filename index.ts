@@ -214,6 +214,7 @@ function isPlainObject(value: any): value is object {
 const hOP = {}.hasOwnProperty;
 
 const enhancerSymbol = Symbol("BobxEnhancer");
+const voidObservableSymbol = Symbol("VoidObservable");
 
 const ObjectProxyHandler: ProxyHandler<any> = {
     get(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol, _receiver: any) {
@@ -225,10 +226,15 @@ const ObjectProxyHandler: ProxyHandler<any> = {
                 if (prop in target) {
                     return target[prop];
                 }
+
                 let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
-                let v = new ObservableValue<any>(undefined, enhancer);
-                target[prop] = v;
-                return v.get();
+                let voidObservable = target[voidObservableSymbol] as any as ObservableValue<any>;
+                if (voidObservable == undefined) {
+                    voidObservable = new ObservableValue<any>(undefined, enhancer);
+                    target[voidObservableSymbol] = voidObservable;
+                }
+                voidObservable.markUsage();
+                return undefined;
             }
             return target[prop].get();
         }
@@ -246,6 +252,10 @@ const ObjectProxyHandler: ProxyHandler<any> = {
             }
             if (!hOP.call(target, prop)) {
                 let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
+                let voidObservable = target[voidObservableSymbol] as any as ObservableValue<any>;
+                if (voidObservable != undefined) {
+                    voidObservable.invalidate();
+                }
                 let v = new ObservableValue<any>(value, enhancer);
                 target[prop] = v;
                 return true;
@@ -256,7 +266,7 @@ const ObjectProxyHandler: ProxyHandler<any> = {
         return false;
     },
     ownKeys(target: Record<string | symbol, ObservableValue<any>>): Array<string | symbol> {
-        return Object.getOwnPropertyNames(target).filter((v) => target[v].get() !== undefined);
+        return Object.getOwnPropertyNames(target);
     },
     defineProperty(): boolean {
         return false;
@@ -267,12 +277,10 @@ const ObjectProxyHandler: ProxyHandler<any> = {
                 return false;
             }
             if (!hOP.call(target, prop)) {
-                let enhancer = target[enhancerSymbol] as any as IEnhancer<any>;
-                let v = new ObservableValue<any>(undefined, enhancer);
-                target[prop] = v;
                 return true;
             }
-            target[prop].set(undefined);
+            target[prop].invalidate();
+            delete target[prop];
             return true;
         }
         return false;
@@ -1668,7 +1676,7 @@ export function observableProp<T, K extends keyof T>(obj: T, key: K): b.IProp<T[
     bobx = behindObservableClass(obj);
     let val = bobx[key];
     if (val === undefined) {
-        obj[key]; // Has side effect to create ObservableValue
+        (obj as any)[key] = undefined; // Has side effect to create ObservableValue
         val = bobx[key]!;
     }
     return val.prop();

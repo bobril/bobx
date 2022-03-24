@@ -87,4 +87,10 @@ describe("ObservableObject", () => {
         let o = bobx.observable({ a: 1 });
         expect(o).toEqual({ a: 1 });
     });
+
+    it("works with deepEqual when stringified", () => {
+        var v = bobx.observable({ a: 1, b: "B" });
+        JSON.stringify(v);
+        expect(bobx.deepEqual(v, { a: 1, b: "B" })).toBeTrue();
+    });
 });
