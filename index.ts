@@ -649,6 +649,7 @@ function makeObservableArray<T>(target: Array<T>, enhancer: IEnhancer<T>): IObse
     "entries",
     "toString",
     "toLocaleString",
+    "hasOwnProperty",
 ].forEach((funcName) => {
     const baseFunc = (Array.prototype as any)[funcName];
     bobxArrayMethods.set(funcName, function (this: InternalTargetArray<any>, ...args: any[]): any {

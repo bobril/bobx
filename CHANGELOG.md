@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.6
+
+ObservableArray now supports `hasOwnProperty`.
+
 ## 1.0.5
 
 ObservableObject now iterates all written properties including which have undefined value, making it behave like normal object.

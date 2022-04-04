@@ -93,4 +93,11 @@ describe("ObservableObject", () => {
         JSON.stringify(v);
         expect(bobx.deepEqual(v, { a: 1, b: "B" })).toBeTrue();
     });
+
+    it("hasOwnProperty", () => {
+        var v = bobx.observable({ a: 1, b: "B" });
+        expect(v.hasOwnProperty("a")).toBeTrue();
+        expect(v.hasOwnProperty("hasOwnProperty")).toBeFalse();
+        expect(v.hasOwnProperty("toString")).toBeFalse();
+    });
 });

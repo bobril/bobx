@@ -75,4 +75,11 @@ describe("ObservableArray", () => {
         let b = a.slice();
         expect(b).toEqual(["hi", { aa: "bb" }]);
     });
+
+    it("hasOwnProperty", () => {
+        var v = observable(["hi"]);
+        expect(v.hasOwnProperty("0")).toBeTrue();
+        expect(v.hasOwnProperty("hasOwnProperty")).toBeFalse();
+        expect(v.hasOwnProperty("toString")).toBeFalse();
+    });
 });
