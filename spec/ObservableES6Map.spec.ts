@@ -79,4 +79,34 @@ describe("ObservableES6Map", () => {
         expect(m.size).toBe(0);
         m.forEach(() => fail());
     });
+
+    it("entries", () => {
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
+        expect(Array.from(m.entries())).toEqual([
+            ["a", 2],
+            ["b", 4],
+        ]);
+    });
+
+    it("values", () => {
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
+        expect(Array.from(m.values())).toEqual([2, 4]);
+    });
+
+    it("iterates", () => {
+        let mm = new Map<string, number>();
+        mm.set("a", 2);
+        mm.set("b", 4);
+        let m = observable(mm);
+        expect(Array.from(m)).toEqual([
+            ["a", 2],
+            ["b", 4],
+        ]);
+    });
 });

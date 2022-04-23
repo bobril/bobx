@@ -695,16 +695,7 @@ export function isObservableMap(thing: any): thing is IObservableMap<any, any> {
     return isObject(thing) && thing.$bobx === ObservableMapMarker;
 }
 
-export interface IMap<K, V> {
-    clear(): void;
-    delete(key: K): boolean;
-    forEach(callbackfn: (value: V, key: K, map: IMap<K, V>) => void, thisArg?: any): void;
-    get(key: K): V | undefined;
-    has(key: K): boolean;
-    set(key: K, value: V): this;
-    keys(): IterableIterator<K>;
-    readonly size: number;
-}
+export type IMap<K, V> = Map<K, V>;
 
 export interface IKeyValueMap<V> {
     [key: string]: V;
@@ -830,6 +821,28 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
             this[k] = v.get();
         }, res);
         return res;
+    }
+
+    get [Symbol.toStringTag]() {
+        return "Map";
+    }
+
+    [Symbol.iterator]() {
+        return this.entries();
+    }
+
+    *entries() {
+        this.$atom.markUsage();
+        for (let [key, value] of this.$content.entries()) {
+            yield [key, value.get()] as [K, V];
+        }
+    }
+
+    *values() {
+        this.$atom.markUsage();
+        for (let value of this.$content.values()) {
+            yield value.get();
+        }
     }
 }
 

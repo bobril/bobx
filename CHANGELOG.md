@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.7
+
+ObservableMap has now all methods of native Map supported (`entries()`, `values()`, iterable).
+
 ## 1.0.6
 
 ObservableArray now supports `hasOwnProperty`.
