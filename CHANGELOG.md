@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.8
+
+Fix compilation with TypeScript 4.8.3
+
 ## 1.0.7
 
 ObservableMap has now all methods of native Map supported (`entries()`, `values()`, iterable).

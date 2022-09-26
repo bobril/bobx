@@ -849,7 +849,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
 addHiddenFinalProp(ObservableMap.prototype, "$bobx", ObservableMapMarker);
 
 function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (newValue === oldValue) return oldValue;
+    if (newValue === oldValue) return newValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
     if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, deepEnhancer) as any as T;
@@ -859,7 +859,7 @@ function deepEnhancer<T>(newValue: T, oldValue: T | undefined): T {
 }
 
 function shallowEnhancer<T>(newValue: T, oldValue: T | undefined): T {
-    if (newValue === oldValue) return oldValue;
+    if (newValue === oldValue) return newValue;
     if (newValue == null) return newValue;
     if (isObservable(newValue)) return newValue;
     if (b.isArray(newValue)) return makeObservableArray<any>(newValue as any, referenceEnhancer) as any as T;

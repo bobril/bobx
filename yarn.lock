@@ -11,16 +11,16 @@ bobflux@*:
     fun-model "6.*"
 
 bobril@*:
-  version "18.2.0"
-  resolved "https://registry.yarnpkg.com/bobril/-/bobril-18.2.0.tgz#d926e3102a5baab9649019a5b43643deaf2df14e"
-  integrity sha512-loyHkMzmTzlgyELt6QOfCZoGKoYd2hSEeFTJSC5GrNYkDjqK02r2pADXhDVfi/VD22uztqlcMKitz6DHCCXTkA==
+  version "20.4.0"
+  resolved "https://registry.yarnpkg.com/bobril/-/bobril-20.4.0.tgz#2808af926a704310dd1c99ab1b0062cc05c4e667"
+  integrity sha512-VdEo6bQNF/6OtHbBKgE6RrH+zLa0ycBBFMbN4Yl1ga1za22OJ8/ZBTSH0hIiqAGtVYbgJfwi/V5gHy6ptHpypA==
 
 fun-model@6.*:
-  version "6.4.0"
-  resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-6.4.0.tgz#9e99fe067861bacd7383fbe2f3d67577a2aaf23b"
-  integrity sha512-/ZNoAosMVc5dHrjmRSJh6W0PhYlaieXs39eBu4BFAKo4q+w+8EtMCg5xInL6iH3gPOEKjj7PKz5qYgCbMTg7ww==
+  version "6.5.0"
+  resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-6.5.0.tgz#290a97e803e932f746c12b78f34ca98123dfb3f3"
+  integrity sha512-UaFdMWeGGk116Hc7h3wD6WxztRCSts3qqzZth6ul0ltJB0oaG/9Q+0NaSFlfMxsa/rT6etmMiTpYt16uMVeqaQ==
 
 typescript@*:
-  version "4.5.5"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.5.5.tgz#d8c953832d28924a9e3d37c73d729c846c5896f3"
-  integrity sha512-TCTIul70LyWe6IJWT8QSYeA54WQe8EjQFU4wY52Fasj5UKx88LNYKCgBEHcOMOrFF1rKGbD8v/xcNWVUq9SymA==
+  version "4.8.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.8.3.tgz#d59344522c4bc464a65a730ac695007fdb66dd88"
+  integrity sha512-goMHfm00nWPa8UvR/CPSvykqf6dVV8x/dp0c5mFTMTIu0u0FlGWRioyy7Nn0PGAdHxpJZnuO/ut+PpQ8UiHAig==
