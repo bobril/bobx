@@ -637,6 +637,7 @@ function makeObservableArray<T>(target: Array<T>, enhancer: IEnhancer<T>): IObse
     "includes",
     "indexOf",
     "flat",
+    "flatMap",
     "join",
     "lastIndexOf",
     "map",
