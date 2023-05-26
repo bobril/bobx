@@ -3,24 +3,24 @@
 
 
 bobflux@*:
-  version "10.0.2"
-  resolved "https://registry.yarnpkg.com/bobflux/-/bobflux-10.0.2.tgz#7ee9c383bb06e6d0fc3dda622765d6602382a231"
-  integrity sha512-il4w2JKzcKEJyLpY1Yiy47nE1qkBs2zAABxN/Lhue/uY4kBMAs2BaGOTylY+5hpVIkRQGJfsOjyC8hQ42wpQUw==
+  version "11.1.0"
+  resolved "https://registry.yarnpkg.com/bobflux/-/bobflux-11.1.0.tgz#7e332c59ce5154a87469dc7a80edc1fa75714d50"
+  integrity sha512-dyjFMURrdpa6pSsOJNaGkOljOqOGPseG9KUD0op7eQla8rB5PhMGBM1pyKEY8DpYF5Dhw/l4A110E3ywNOabxw==
   dependencies:
     bobril "*"
-    fun-model "6.*"
+    fun-model "7.*"
 
 bobril@*:
-  version "20.4.0"
-  resolved "https://registry.yarnpkg.com/bobril/-/bobril-20.4.0.tgz#2808af926a704310dd1c99ab1b0062cc05c4e667"
-  integrity sha512-VdEo6bQNF/6OtHbBKgE6RrH+zLa0ycBBFMbN4Yl1ga1za22OJ8/ZBTSH0hIiqAGtVYbgJfwi/V5gHy6ptHpypA==
+  version "20.5.0"
+  resolved "https://registry.yarnpkg.com/bobril/-/bobril-20.5.0.tgz#855f2b99e9b647a401ee1139a1153baebc8bb4fe"
+  integrity sha512-W35ePuwy3xKMmFlhCJjtZeovvqAuVTj7midQXT/p5kg7kuvYifRbEzOji1ik4fl18dx0AryDM41iFeejvjkw1w==
 
-fun-model@6.*:
-  version "6.5.0"
-  resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-6.5.0.tgz#290a97e803e932f746c12b78f34ca98123dfb3f3"
-  integrity sha512-UaFdMWeGGk116Hc7h3wD6WxztRCSts3qqzZth6ul0ltJB0oaG/9Q+0NaSFlfMxsa/rT6etmMiTpYt16uMVeqaQ==
+fun-model@7.*:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/fun-model/-/fun-model-7.0.1.tgz#dea0ff4ac6d6cf90ca46a9716e46d9efa4eab651"
+  integrity sha512-1/M0RDuCKtGNI8Es5jLva/hSNW9rVkyoCij2hSG9MoxaoIAXKXJbitMfJQ+mdeN0W4ZQlrZWdfXVXDTGf5cemQ==
 
 typescript@*:
-  version "4.8.3"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.8.3.tgz#d59344522c4bc464a65a730ac695007fdb66dd88"
-  integrity sha512-goMHfm00nWPa8UvR/CPSvykqf6dVV8x/dp0c5mFTMTIu0u0FlGWRioyy7Nn0PGAdHxpJZnuO/ut+PpQ8UiHAig==
+  version "5.0.4"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.0.4.tgz#b217fd20119bd61a94d4011274e0ab369058da3b"
+  integrity sha512-cW9T5W9xY37cc+jfEnaUvX91foxtHkza3Nw3wkoF4sSlKn0MONdkdEndig/qPBWXNkmplh3NzayQzCiHM4/hqw==

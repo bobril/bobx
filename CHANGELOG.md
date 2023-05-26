@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.0.9
+
+ObservableArray now supports `flatMap`.
+
 ## 1.0.8
 
 Fix compilation with TypeScript 4.8.3
