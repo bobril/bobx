@@ -290,11 +290,21 @@ const ObjectProxyHandler: ProxyHandler<any> = {
 function createObservableObject(source: Object, enhancer: IEnhancer<any>): Object {
     let target = {} /*Object.create(Object.getPrototypeOf(source))*/ as any;
     target[enhancerSymbol] = enhancer;
+    let proxy = new Proxy(target, ObjectProxyHandler);
     for (let key in source) {
         if (!hOP.call(source, key)) continue;
-        target[key] = new ObservableValue((source as any)[key], enhancer);
+        let descriptor = Object.getOwnPropertyDescriptor(source, key)!;
+        const descriptorGet = descriptor.get;
+        const descriptorSet = descriptor.set;
+        if (descriptorGet !== undefined || descriptorSet !== undefined) {
+            target[key] = {
+                get: descriptorGet !== undefined ? () => new ComputedImpl(descriptorGet, proxy, enhancer).call() : () => { throw new Error("Getter does not exist") },
+                set: descriptorSet !== undefined ? (value: any) => descriptorSet.call(proxy, value) : () => { throw new Error("Setter does not exist") },
+            };
+        } else
+            target[key] = new ObservableValue((source as any)[key], enhancer);
     }
-    return new Proxy(target, ObjectProxyHandler);
+    return proxy;
 }
 
 export function behindObservableClass(target: Object): Record<string, IObservableValue<any>> {
@@ -1071,7 +1081,7 @@ export const enum ComputedState {
 }
 
 export class CaughtException {
-    constructor(public cause: any) {}
+    constructor(public cause: any) { }
 }
 
 function buryWholeDeadSet() {
@@ -2289,8 +2299,8 @@ class ParamAsyncComputedImpl extends AsyncComputedImpl {
 // we skip promises that are the result of yielding promises (except if they use flowReturn)
 export type AsyncReturnType<G> = G extends Generator<infer Y, infer R, any>
     ? Y extends PromiseLike<any>
-        ? R
-        : R | IfAllArePromiseYieldThenVoid<Y>
+    ? R
+    : R | IfAllArePromiseYieldThenVoid<Y>
     : void;
 
 // we extract yielded promises from the return type

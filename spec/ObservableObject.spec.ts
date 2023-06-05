@@ -100,4 +100,11 @@ describe("ObservableObject", () => {
         expect(v.hasOwnProperty("hasOwnProperty")).toBeFalse();
         expect(v.hasOwnProperty("toString")).toBeFalse();
     });
+
+    it("getter works as computed", () => {
+        var v = bobx.observable({ a: 1, get b() { return this.a + 1; } });
+        expect(v.b).toBe(2);
+        v.a = 2;
+        expect(v.b).toBe(3);
+    });
 });

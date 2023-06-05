@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.1.0
+
+Observable objects now supports properties with getters or setters. Getters are automatically promoted to computeds.
+
 ## 1.0.9
 
 ObservableArray now supports `flatMap`.
