@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.2.0
+
+Improved type of `isObservable` function.
+
+Fixed feature from 1.1.0
+
 ## 1.1.0
 
 Observable objects now supports properties with getters or setters. Getters are automatically promoted to computeds.

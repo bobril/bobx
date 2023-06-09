@@ -193,11 +193,11 @@ function referenceEnhancer<T>(newValue: T, _oldValue: T | undefined): T {
     return newValue;
 }
 
-export function isObservable(value: any) {
+export function isObservable(value: any): value is IObservable {
     return value != null && value.$bobx !== undefined;
 }
 
-function isObject(value: any): boolean {
+function isObject(value: any): value is object {
     return value !== null && typeof value === "object";
 }
 
@@ -287,7 +287,7 @@ const ObjectProxyHandler: ProxyHandler<any> = {
     },
 };
 
-function createObservableObject(source: Object, enhancer: IEnhancer<any>): Object {
+function createObservableObject(source: Object, enhancer: IEnhancer<unknown>): Object {
     let target = {} /*Object.create(Object.getPrototypeOf(source))*/ as any;
     target[enhancerSymbol] = enhancer;
     let proxy = new Proxy(target, ObjectProxyHandler);
@@ -297,8 +297,9 @@ function createObservableObject(source: Object, enhancer: IEnhancer<any>): Objec
         const descriptorGet = descriptor.get;
         const descriptorSet = descriptor.set;
         if (descriptorGet !== undefined || descriptorSet !== undefined) {
+            const computed = (descriptorGet !== undefined) ? new ComputedImpl(descriptorGet, proxy, equalsIncludingNaN) : undefined;
             target[key] = {
-                get: descriptorGet !== undefined ? () => new ComputedImpl(descriptorGet, proxy, enhancer).call() : () => { throw new Error("Getter does not exist") },
+                get: descriptorGet !== undefined ? () => computed!.run() : () => { throw new Error("Getter does not exist") },
                 set: descriptorSet !== undefined ? (value: any) => descriptorSet.call(proxy, value) : () => { throw new Error("Setter does not exist") },
             };
         } else
@@ -315,7 +316,7 @@ export function behindObservableClass(target: Object): Record<string, IObservabl
     return behind;
 }
 
-export function deepEqual(a: any, b: any): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (typeof a !== "object" || typeof b !== "object") {
         if (a !== a && b !== b) return true;
@@ -346,7 +347,7 @@ export function deepEqual(a: any, b: any): boolean {
             });
             return res;
         }
-        let bb = b;
+        let bb = b!;
         if (isObservable(b)) bb = b.$bobx;
         let bKeys = 0;
         for (let _prop in bb) {
@@ -360,12 +361,12 @@ export function deepEqual(a: any, b: any): boolean {
                 res = false;
                 return;
             }
-            if (!deepEqual(v, b[k])) res = false;
+            if (!deepEqual(v, (b as Record<string | number, any>)[k])) res = false;
         });
         return res;
     }
     if (isObservableMap(b)) {
-        let aa = a;
+        let aa = a!;
         if (isObservable(a)) aa = a.$bobx;
         let aKeys = 0;
         for (let _prop in aa) {
@@ -379,12 +380,12 @@ export function deepEqual(a: any, b: any): boolean {
                 res = false;
                 return;
             }
-            if (!deepEqual(v, a[k])) res = false;
+            if (!deepEqual(v, (a as Record<string | number, any>)[k])) res = false;
         });
         return res;
     }
-    let aa = a;
-    let bb = b;
+    let aa = a!;
+    let bb = b!;
     if (isObservable(a)) aa = a.$bobx;
     if (isObservable(b)) bb = b.$bobx;
     let bKeys = 0;
@@ -395,7 +396,7 @@ export function deepEqual(a: any, b: any): boolean {
     for (let prop in aa) {
         aKeys++;
         if (!(prop in bb)) return false;
-        if (!deepEqual(a[prop], b[prop])) return false;
+        if (!deepEqual((a as Record<string | number, any>)[prop], (b as Record<string | number, any>)[prop])) return false;
     }
     return aKeys == bKeys;
 }
@@ -702,8 +703,8 @@ function isArrayLike<T>(
 const ObservableMapMarker = 0;
 const ComputedMarker = 1;
 
-export function isObservableMap(thing: any): thing is IObservableMap<any, any> {
-    return isObject(thing) && thing.$bobx === ObservableMapMarker;
+export function isObservableMap(thing: any): thing is IObservableMap<string | number, any> {
+    return isObject(thing) && (thing as any).$bobx === ObservableMapMarker;
 }
 
 export type IMap<K, V> = Map<K, V>;
@@ -1001,7 +1002,7 @@ function createObservable(value: any = undefined): IObservableValue<any> {
     if (arguments.length > 1) return deepDecorator.apply(null, arguments as any) as any;
 
     // it is an observable already, done
-    if (isObservable(value)) return value;
+    if (isObservable(value)) return value as unknown as IObservableValue<any>;
 
     // something that can be converted and mutated?
     const res = deepEnhancer(value, undefined);

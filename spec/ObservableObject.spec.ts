@@ -102,9 +102,18 @@ describe("ObservableObject", () => {
     });
 
     it("getter works as computed", () => {
-        var v = bobx.observable({ a: 1, get b() { return this.a + 1; } });
-        expect(v.b).toBe(2);
-        v.a = 2;
-        expect(v.b).toBe(3);
+        bobx.reactiveScope(() => {
+            let runs = 0;
+            var v = bobx.observable({ a: 1, get b() { runs++; return this.a + 1; } });
+            expect(runs).toBe(0);
+            expect(v.b).toBe(2);
+            expect(runs).toBe(1);
+            v.a = 2;
+            expect(v.b).toBe(3);
+            expect(runs).toBe(2);
+            expect(v.b).toBe(3);
+            expect(runs).toBe(2);
+            expect(() => (v as any).b = 3).toThrow();
+        });
     });
 });
