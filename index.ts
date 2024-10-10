@@ -297,13 +297,23 @@ function createObservableObject(source: Object, enhancer: IEnhancer<unknown>): O
         const descriptorGet = descriptor.get;
         const descriptorSet = descriptor.set;
         if (descriptorGet !== undefined || descriptorSet !== undefined) {
-            const computed = (descriptorGet !== undefined) ? new ComputedImpl(descriptorGet, proxy, equalsIncludingNaN) : undefined;
+            const computed =
+                descriptorGet !== undefined ? new ComputedImpl(descriptorGet, proxy, equalsIncludingNaN) : undefined;
             target[key] = {
-                get: descriptorGet !== undefined ? () => computed!.run() : () => { throw new Error("Getter does not exist") },
-                set: descriptorSet !== undefined ? (value: any) => descriptorSet.call(proxy, value) : () => { throw new Error("Setter does not exist") },
+                get:
+                    descriptorGet !== undefined
+                        ? () => computed!.run()
+                        : () => {
+                              throw new Error("Getter does not exist");
+                          },
+                set:
+                    descriptorSet !== undefined
+                        ? (value: any) => descriptorSet.call(proxy, value)
+                        : () => {
+                              throw new Error("Setter does not exist");
+                          },
             };
-        } else
-            target[key] = new ObservableValue((source as any)[key], enhancer);
+        } else target[key] = new ObservableValue((source as any)[key], enhancer);
     }
     return proxy;
 }
@@ -396,7 +406,8 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     for (let prop in aa) {
         aKeys++;
         if (!(prop in bb)) return false;
-        if (!deepEqual((a as Record<string | number, any>)[prop], (b as Record<string | number, any>)[prop])) return false;
+        if (!deepEqual((a as Record<string | number, any>)[prop], (b as Record<string | number, any>)[prop]))
+            return false;
     }
     return aKeys == bKeys;
 }
@@ -848,6 +859,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         for (let [key, value] of this.$content.entries()) {
             yield [key, value.get()] as [K, V];
         }
+        return undefined;
     }
 
     *values() {
@@ -855,6 +867,7 @@ export class ObservableMap<K, V> implements IObservableMap<K, V> {
         for (let value of this.$content.values()) {
             yield value.get();
         }
+        return undefined;
     }
 }
 
@@ -1082,7 +1095,7 @@ export const enum ComputedState {
 }
 
 export class CaughtException {
-    constructor(public cause: any) { }
+    constructor(public cause: any) {}
 }
 
 function buryWholeDeadSet() {
@@ -2300,8 +2313,8 @@ class ParamAsyncComputedImpl extends AsyncComputedImpl {
 // we skip promises that are the result of yielding promises (except if they use flowReturn)
 export type AsyncReturnType<G> = G extends Generator<infer Y, infer R, any>
     ? Y extends PromiseLike<any>
-    ? R
-    : R | IfAllArePromiseYieldThenVoid<Y>
+        ? R
+        : R | IfAllArePromiseYieldThenVoid<Y>
     : void;
 
 // we extract yielded promises from the return type

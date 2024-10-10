@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.2.1
+
+Fix compilation with TypeScript 5.6.3
+
 ## 1.2.0
 
 Improved type of `isObservable` function.
