@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.2.2
+
+Fixed Object.freeze crashed on observable objects.
+
 ## 1.2.1
 
 Fix compilation with TypeScript 5.6.3

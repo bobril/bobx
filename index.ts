@@ -266,10 +266,9 @@ const ObjectProxyHandler: ProxyHandler<any> = {
         return false;
     },
     ownKeys(target: Record<string | symbol, ObservableValue<any>>): Array<string | symbol> {
-        return Object.getOwnPropertyNames(target);
-    },
-    defineProperty(): boolean {
-        return false;
+        return (Object.getOwnPropertySymbols(target) as Array<string | symbol>).concat(
+            Object.getOwnPropertyNames(target)
+        );
     },
     deleteProperty(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol): boolean {
         if (b.isString(prop)) {

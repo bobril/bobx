@@ -34,9 +34,16 @@
     "resolveJsonModule": true
   },
   "files": [
+    "index.ts",
+    "/Users/borisletocha/Research/bobx/example.ts",
     "/Users/borisletocha/.bbcore/tools/jasmine400.d.ts"
   ],
   "include": [
-    "**/*"
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.spec.d.ts",
+    "**/*Spec.ts",
+    "**/*Spec.tsx",
+    "**/*Spec.d.ts"
   ]
 }
