@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.2.3
+
+Reverted `Object.freeze` fix from 1.2.2, because it is not possible to make correct regarding enumeration of properties to not include Symbols.
+
 ## 1.2.2
 
 Fixed Object.freeze crashed on observable objects.

@@ -123,8 +123,22 @@ describe("ObservableObject", () => {
         });
     });
 
-    it("possible to freeze", () => {
+    it("not possible to freeze", () => {
         var v = bobx.observable({ a: 1, b: "B" });
-        Object.freeze(v);
+        expect(() => Object.freeze(v)).toThrow();
+    });
+
+    it("enumerable only on observable properties", () => {
+        var v = bobx.observable({ a: 1, b: "B" });
+        expect(Reflect.ownKeys(v).length).toBe(2);
+        let symbols = Object.getOwnPropertySymbols(v);
+        expect(symbols.length).toBe(0);
+        let props = Object.getOwnPropertyNames(v);
+        expect(props).toEqual(["a", "b"]);
+        var props2 = [];
+        for (const key in v) {
+            props2.push(key);
+        }
+        expect(props2).toEqual(["a", "b"]);
     });
 });

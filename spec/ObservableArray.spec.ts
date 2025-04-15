@@ -82,4 +82,10 @@ describe("ObservableArray", () => {
         expect(v.hasOwnProperty("hasOwnProperty")).toBeFalse();
         expect(v.hasOwnProperty("toString")).toBeFalse();
     });
+
+    it("more complex equal", () => {
+        let a = observable(["hi", { aa: "bb" }]);
+        expect((a[1] as any).bb).toBeUndefined();
+        expect(a).toEqual(["hi", { aa: "bb" }]);
+    });
 });

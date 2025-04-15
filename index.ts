@@ -266,9 +266,25 @@ const ObjectProxyHandler: ProxyHandler<any> = {
         return false;
     },
     ownKeys(target: Record<string | symbol, ObservableValue<any>>): Array<string | symbol> {
-        return (Object.getOwnPropertySymbols(target) as Array<string | symbol>).concat(
-            Object.getOwnPropertyNames(target)
-        );
+        return Object.keys(target);
+    },
+    has(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol): boolean {
+        if (b.isString(prop)) {
+            if (prop === "$bobx") {
+                return false;
+            }
+            return Reflect.has(target, prop);
+        }
+        return false;
+    },
+    getOwnPropertyDescriptor(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol) {
+        if (b.isString(prop)) {
+            if (prop === "$bobx") {
+                return undefined;
+            }
+            return Reflect.getOwnPropertyDescriptor(target, prop);
+        }
+        return undefined;
     },
     deleteProperty(target: Record<string | symbol, ObservableValue<any>>, prop: string | symbol): boolean {
         if (b.isString(prop)) {
