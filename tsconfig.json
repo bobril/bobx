@@ -5,7 +5,6 @@
     "allowSyntheticDefaultImports": true,
     "checkJs": false,
     "declaration": false,
-    "downlevelIteration": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
@@ -30,13 +29,14 @@
     "sourceMap": true,
     "strict": true,
     "strictNullChecks": true,
-    "target": "es2019",
-    "resolveJsonModule": true
+    "target": "es2022",
+    "resolveJsonModule": true,
+    "useDefineForClassFields": false
   },
   "files": [
     "index.ts",
     "/Users/borisletocha/Research/bobx/example.ts",
-    "/Users/borisletocha/.bbcore/tools/jasmine400.d.ts"
+    "../../.bbcore/tools/jasmine400.d.ts"
   ],
   "include": [
     "**/*.spec.ts",

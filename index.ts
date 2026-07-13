@@ -649,7 +649,7 @@ const ArrayProxyHandler: ProxyHandler<Array<any> & InternalTargetArray<any>> = {
 function makeObservableArray<T>(target: Array<T>, enhancer: IEnhancer<T>): IObservableArray<T> {
     target = target.map((v) => enhancer(v, undefined));
     let internal = [
-        new Proxy(target, ArrayProxyHandler) as IObservableArray<T>,
+        new Proxy(target as unknown as Array<any> & InternalTargetArray<any>, ArrayProxyHandler) as unknown as IObservableArray<T>,
         enhancer,
         new ObservableValue<any>(null, referenceEnhancer),
         target,
